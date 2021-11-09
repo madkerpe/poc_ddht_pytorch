@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import math
 
 length = 30
 num_covariates = 3 # Don't change this
@@ -13,7 +14,6 @@ def generate_sample(id, latent_variable=None):
     # second dimension a linear increasing value
     # third dimension is the sinus of the linear increasing value
     # TODO maybe a fourth dimension that has more information of the dying process
-    # TODO add time to event to the dataloader
     # TODO left & right censoring
 
     # There is one latent variable, a value between 0 and 1, the survival time is dependent on it AND it is present in the longitudional data by the amplitude of the sine function
@@ -34,9 +34,9 @@ def generate_sample(id, latent_variable=None):
     data[:, 0] = id * torch.ones(length)
 
     # make the time horizon dependent on the latent variable
-    event_time = 1 + torch.floor(length*latent_variable)
+    time_to_event = 1 + math.floor((length-1)*latent_variable)
 
-    # Add some random noise on the start of the sample
+    # add some random noise on the start of the sample
     random_start = 10 + 10 * torch.rand(1)
     data[:, 1] = random_start + torch.tensor(np.linspace(0, 5 * np.pi, num=length))
     
@@ -51,10 +51,11 @@ def generate_sample(id, latent_variable=None):
     # make the longitudional data dependent on the latent variable
     data[:, 2] = latent_variable*torch.sin(data[:, 1])
 
-    if event_time > 29:
-        event_time = 29
+    # set everything after the event to zero
+    if time_to_event < length:
+        data[time_to_event:,:] = torch.zeros(length - time_to_event, num_covariates)
 
-    return data
+    return data, time_to_event, event
 
 
 class PocDataset(torch.utils.data.Dataset):
@@ -77,4 +78,4 @@ class PocDataset(torch.utils.data.Dataset):
 
         return (self.data[idx], self.labels[idx])
 
-test = generate_sample(3, 1)
+data, time_to_event, event = generate_sample(3, latent_variable=1)

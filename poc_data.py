@@ -4,7 +4,6 @@ import math
 
 length = 30
 num_covariates = 3  # This is not customisable
-batch_size = 16
 
 
 def generate_sample(id, latent_variable=None):

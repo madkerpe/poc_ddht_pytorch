@@ -7,7 +7,7 @@ length = 30
 num_covariates = 3  # This is not customisable
 batch_size = 16
 
-class sharedSubnetwork(torch.nn.Module):
+class SharedSubnetwork(torch.nn.Module):
     def __init__(self, num_covariates=3, hidden_states=32):
         torch.nn.Module.__init__(self)
         self.gru = GRU(input_size=num_covariates, hidden_size=hidden_states, batch_first=True, num_layers=1)
@@ -19,3 +19,13 @@ class sharedSubnetwork(torch.nn.Module):
         y = relu(h)
         
         return y, gru_hidden
+
+class EncoderRNN(torch.nn.Module):
+    def __init__(self, num_covariates, hidden_size):
+        super(EncoderRNN, self).__init__()
+        self.hidden_size = hidden_size
+        self.gru = GRU(input_size=num_covariates, hidden_size=hidden_size, batch_first=True, num_layers=1)
+
+    def forward(self, input, hidden):
+        output, hidden = self.gru(input, hidden)
+        return output, hidden

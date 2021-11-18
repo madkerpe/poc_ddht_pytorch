@@ -32,16 +32,15 @@ class AttnDecoderRNN(torch.nn.Module):
         self.hidden_size = hidden_size
         self.output_size = output_size
         self.max_length = max_length
-        self.attn = Linear(self.hidden_size + output_size, self.max_length)
+        self.attn = Linear(self.hidden_size + output_size, 1)
 
     def forward(self, last_measurement, encoder_hidden_vector):
-        #TODO Here in the decoder, we abuse the batch system
-        # Ik heb het verkeerd gebruikt, nu mapt het de sequence naar 30 waarden per hidden state, wat niet juist is...
+        #TODO Here in the decoder, we abuse the batch system, this should be reworked
         input_for_attention = torch.cat((last_measurement.repeat(self.max_length,1), encoder_hidden_vector), 1)
         importance = self.attn(input_for_attention)
-        attn_weights = softmax(importance, dim=1)
+        attn_weights = softmax(importance, dim=0)
 
-        context_vector = torch.bmm(attn_weights.unsqueeze(0), encoder_hidden_vector.unsqueeze(0))
+        context_vector = attn_weights*encoder_hidden_vector
 
         return context_vector, attn_weights
 

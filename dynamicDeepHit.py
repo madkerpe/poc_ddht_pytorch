@@ -1,6 +1,6 @@
 import torch
 from torch.nn import Linear, GRU
-from torch.nn.functional import relu, softmax, tanh
+from torch.nn.functional import relu, softmax, tanh, sigmoid
 
 _EPSILON = 1e-08
 length = 30
@@ -25,8 +25,15 @@ class EncoderRNN(torch.nn.Module):
 
         return output, hidden
 
-    def initHidden(self, device='cpu'):
+    def initHidden(self, device):
         return torch.zeros(1, 1, self.hidden_size, device=device)
+
+# class AttnNetwork(torch.nn.Module):
+#     def __init__(self, hidden_size, output_size):
+#         super(AttnDecoderRNN, self).__init__()
+#         #mis-use the batch system
+#         self.attn = Linear(hidden_size + output_size, 1)
+
 
 class AttnDecoderRNN(torch.nn.Module):
     def __init__(self, hidden_size, output_size, max_length):
@@ -45,6 +52,19 @@ class AttnDecoderRNN(torch.nn.Module):
         context_vector = torch.mm(torch.transpose(attn_weights, 0, 1), encoder_hidden_vector)
 
         return context_vector
+
+class RegressionNetwork(torch.nn.Module):
+    def __init__(self, input_size, hidden_size):
+        super(RegressionNetwork, self).__init__()
+        self.layer1 = Linear(input_size, hidden_size//2)
+        self.layer2 = Linear(hidden_size//2, 1)
+    
+    def forward(self, input):
+        output = relu(self.layer1(input))
+        output = torch.sigmoid(self.layer2(output))
+
+        return output
+
 
 class SharedSubnetwork(torch.nn.Module):
     def __init__(self, input_size, hidden_size, output_size, max_length, device):

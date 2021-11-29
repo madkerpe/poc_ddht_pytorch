@@ -2,14 +2,14 @@ import numpy as np
 import torch
 import math
 
-length = 30
+length = 20
 num_covariates = 3  # This is not customisable
 
 
 def generate_sample(id, latent_variable=None):
     """
     Generate a longitudional data sample, with 3 covariates,
-    first dimention is just an id
+    first dimension is just an id
     second dimension a linear increasing value
     third dimension is the sinus of the linear increasing value
     TODO maybe a fourth dimension that has more information of the dying process
@@ -28,7 +28,7 @@ def generate_sample(id, latent_variable=None):
 
     # define the latent variable
     if latent_variable == None:
-        latent_variable = torch.rand(1)
+        latent_variable = 0.75*torch.rand(1) + 0.25
 
     # reserve space for the data sample
     data = torch.zeros(length, num_covariates)

@@ -1,3 +1,4 @@
+from typing import ForwardRef
 import torch
 from torch.nn import Linear, GRU
 from torch.nn.functional import relu, softmax, tanh, sigmoid
@@ -5,17 +6,16 @@ from torch.nn.functional import relu, softmax, tanh, sigmoid
 _EPSILON = 1e-08
 length = 30
 num_covariates = 3  # This is not customisable
-batch_size = 16
 
 class EncoderRNN(torch.nn.Module):
-    def __init__(self, input_size, hidden_size):
+    def __init__(self, input_size, hidden_size, fc_size):
         super(EncoderRNN, self).__init__()
         self.hidden_size = hidden_size
         self.input_size = input_size
         self.gru = GRU(input_size, hidden_size, batch_first=True)
-        self.fc_layer_1 = Linear(hidden_size, hidden_size//2)
-        self.fc_layer_2 = Linear(hidden_size//2, hidden_size//4)
-        self.fc_layer_3 = Linear(hidden_size//4, input_size)
+        self.fc_layer_1 = Linear(hidden_size, fc_size)
+        self.fc_layer_2 = Linear(fc_size, fc_size//2)
+        self.fc_layer_3 = Linear(fc_size//2, input_size)
 
     def forward(self, input, hidden):
         output, hidden = self.gru(input, hidden)
@@ -92,3 +92,20 @@ class SharedSubnetwork(torch.nn.Module):
         context_vector = self.decoder(last_measurement, self.encoder_hidden_vector)
 
         return context_vector, self.encoder_output_vector
+
+class CauseSpecificSubnetwork(torch.nn.Module):
+    def __init__(self, hidden_size, input_size, max_length, num_causes):
+        super(CauseSpecificSubnetwork, self).__init__()
+        # hidden_size = context length
+        self.layer1 = Linear(hidden_size + input_size, 2*hidden_size)
+        self.layer2 = Linear(2*hidden_size, hidden_size)
+        self.layer3 = Linear(hidden_size, hidden_size//2)
+        self.layer4 = Linear(hidden_size//2, max_length*num_causes)
+
+    def forward(self, context_vector, last_measurement):
+        output = relu(self.layer1(torch.cat((context_vector, last_measurement.unsqueeze(0)), dim=1)))
+        output = relu(self.layer2(output))
+        output = relu(self.layer3(output))
+        output = softmax(self.layer4(output), dim=1)
+
+        return output

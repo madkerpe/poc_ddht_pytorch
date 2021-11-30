@@ -34,7 +34,7 @@ def eta(a,b, sigma):
     sigma = 1
     return torch.exp((-1)*(a-b)/sigma)
 
-def loss_2_batch(first_hitting_time_batch, event_batch, time_to_event_batch, num_events, max_length, sigma):
+def loss_2_batch(first_hitting_time_batch, event_batch, time_to_event_batch, num_events, max_length, sigma, device):
     """
     concordance loss
 
@@ -42,6 +42,10 @@ def loss_2_batch(first_hitting_time_batch, event_batch, time_to_event_batch, num
     while subject j did not experience any event at time s^i
     """
     batch_size = first_hitting_time_batch.size(0)
+
+    if batch_size <= 1:
+        return torch.tensor([0]).to(device)
+
     total_ranking_loss = 0
     # iterate over every possible event
     for event in range(num_events):
@@ -62,28 +66,6 @@ def loss_2_batch(first_hitting_time_batch, event_batch, time_to_event_batch, num
             
 
     return total_ranking_loss
-
-
-
-
-
-
-# def ranking_loss(cif, t, e, sigma):
-#     """
-#         Penalize wrong ordering of probability
-#         Equivalent to a C Index
-#         This function is used to penalize wrong ordering in the survival prediction
-#     """
-#     loss = 0
-#     # Data ordered by time
-#     for k, cifk in enumerate(cif):
-#         for ci, ti in zip(cifk[e-1 == k], t[e-1 == k]):
-#             # For all events: all patients that didn't experience event before
-#             # must have a lower risk for that cause
-#             if torch.sum(t > ti) > 0:
-#                 # TODO: When data are sorted in time -> wan we make it even faster ?
-#                 loss += torch.mean(torch.exp((cifk[t > ti][:, ti] - ci[ti])) / sigma)
-    
 
 def loss_3_batch(encoder_output_batch, input_batch):
     mse_loss = MSELoss(reduction="sum")

@@ -1,4 +1,3 @@
-from dynamicDeepHit import _EPSILON
 import torch
 
 _EPSILON = 1e-10

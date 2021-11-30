@@ -3,8 +3,6 @@ import torch
 from torch.nn import Linear, GRU
 from torch.nn.functional import relu, softmax, tanh, sigmoid
 
-_EPSILON = 1e-08
-length = 30
 num_covariates = 3  # This is not customisable
 
 class EncoderRNN(torch.nn.Module):
@@ -28,12 +26,19 @@ class EncoderRNN(torch.nn.Module):
     def initHidden(self, device):
         return torch.zeros(1, 1, self.hidden_size, device=device)
 
-# class AttnNetwork(torch.nn.Module):
-#     def __init__(self, hidden_size, output_size):
-#         super(AttnDecoderRNN, self).__init__()
-#         #mis-use the batch system
-#         self.attn = Linear(hidden_size + output_size, 1)
+class AttnNetwork(torch.nn.Module):
+    def __init__(self, hidden_size, output_size, max_length):
+        super(AttnNetwork, self).__init__()
+        self.max_length = max_length
+        self.layer_1 = Linear(hidden_size + output_size, 1)
 
+    def forward(self, last_measurement, encoder_hidden_vector):
+        #TODO Here in the decoder, we abuse the batch system, this should be reworked
+        input_for_attention = torch.cat((last_measurement.repeat(self.max_length,1), encoder_hidden_vector), 1)
+        importance = self.layer_1(input_for_attention)
+        attn_weights = softmax(importance, dim=0)
+
+        return attn_weights
 
 class AttnDecoderRNN(torch.nn.Module):
     def __init__(self, hidden_size, output_size, max_length):
@@ -41,14 +46,10 @@ class AttnDecoderRNN(torch.nn.Module):
         self.hidden_size = hidden_size
         self.output_size = output_size
         self.max_length = max_length
-        self.attn = Linear(self.hidden_size + output_size, 1)
+        self.attn = AttnNetwork(hidden_size, output_size, max_length)
 
     def forward(self, last_measurement, encoder_hidden_vector):
-        #TODO Here in the decoder, we abuse the batch system, this should be reworked
-        input_for_attention = torch.cat((last_measurement.repeat(self.max_length,1), encoder_hidden_vector), 1)
-        importance = self.attn(input_for_attention)
-        attn_weights = softmax(importance, dim=0)
-
+        attn_weights = self.attn(last_measurement, encoder_hidden_vector)
         context_vector = torch.mm(torch.transpose(attn_weights, 0, 1), encoder_hidden_vector)
 
         return context_vector
@@ -67,36 +68,16 @@ class RegressionNetwork(torch.nn.Module):
 
 
 class SharedSubnetwork(torch.nn.Module):
-    def __init__(self, input_size, hidden_size, output_size, max_length, device):
+    def __init__(self):
         super(SharedSubnetwork, self).__init__()
-        self.encoder = EncoderRNN(input_size, hidden_size)
-        self.decoder = AttnDecoderRNN(hidden_size, output_size, max_length)
+        pass
 
-        self.encoder_hidden_vector = torch.zeros(max_length, self.encoder.hidden_size, device=device)
-        self.encoder_output_vector = torch.zeros(max_length, output_size, device=device)
-        self.encoder_hidden = self.encoder.initHidden(device)
-
-    def forward(self, batch, time_to_event):
-        input_length = batch.size(1)
-
-        for ei in range(input_length):
-            encoder_input = batch[0][ei].view(1,1,-1)
-            encoder_output, self.encoder_hidden = self.encoder(encoder_input, self.encoder_hidden)
-            self.encoder_hidden_vector[ei] = self.encoder_hidden[0,0].clone()
-            self.encoder_output_vector[ei] = encoder_output.clone()
-
-
-        #last_measurement_index = int(time_to_event.item())
-        last_measurement = batch[0][ei]
-
-        context_vector = self.decoder(last_measurement, self.encoder_hidden_vector)
-
-        return context_vector, self.encoder_output_vector
+    def forward(self):
+        pass
 
 class CauseSpecificSubnetwork(torch.nn.Module):
     def __init__(self, hidden_size, input_size, max_length, num_causes):
         super(CauseSpecificSubnetwork, self).__init__()
-        # hidden_size = context length
         self.layer1 = Linear(hidden_size + input_size, 2*hidden_size)
         self.layer2 = Linear(2*hidden_size, hidden_size)
         self.layer3 = Linear(hidden_size, hidden_size//2)

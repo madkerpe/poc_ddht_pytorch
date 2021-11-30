@@ -54,19 +54,6 @@ class AttnDecoderRNN(torch.nn.Module):
 
         return context_vector
 
-class RegressionNetwork(torch.nn.Module):
-    def __init__(self, input_size, hidden_size):
-        super(RegressionNetwork, self).__init__()
-        self.layer1 = Linear(input_size, hidden_size//2)
-        self.layer2 = Linear(hidden_size//2, 1)
-    
-    def forward(self, input):
-        output = relu(self.layer1(input))
-        output = torch.sigmoid(self.layer2(output))
-
-        return output
-
-
 class SharedSubnetwork(torch.nn.Module):
     def __init__(self):
         super(SharedSubnetwork, self).__init__()

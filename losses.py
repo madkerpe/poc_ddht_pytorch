@@ -40,6 +40,8 @@ def loss_2_batch(first_hitting_time_batch, event_batch, time_to_event_batch, num
 
     define pair (i,j) an acceptable pair for event k, if subject i experiences event k at time s^i, 
     while subject j did not experience any event at time s^i
+
+    TODO: test grondig
     """
     batch_size = first_hitting_time_batch.size(0)
 

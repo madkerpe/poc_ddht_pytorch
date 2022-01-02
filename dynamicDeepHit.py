@@ -1,4 +1,3 @@
-from typing import ForwardRef
 import torch
 from torch.nn import Linear, GRU
 from torch.nn.functional import relu, softmax, tanh, sigmoid
@@ -55,14 +54,6 @@ class AttnDecoderRNN(torch.nn.Module):
         context_vector = torch.mm(torch.transpose(attn_weights, 0, 1), encoder_hidden_vector)
 
         return context_vector
-
-class SharedSubnetwork(torch.nn.Module):
-    def __init__(self):
-        super(SharedSubnetwork, self).__init__()
-        pass
-
-    def forward(self):
-        pass
 
 class CauseSpecificSubnetwork(torch.nn.Module):
     def __init__(self, hidden_size, input_size, max_length, num_causes):

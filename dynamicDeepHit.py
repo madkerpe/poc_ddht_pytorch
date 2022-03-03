@@ -23,7 +23,7 @@ class EncoderRNN(torch.nn.Module):
         return output, hidden
 
     def initHidden(self, device):
-        return torch.zeros(1, 1, self.hidden_size, device=device)
+        return torch.rand(1, 1, self.hidden_size, device=device)
 
 class AttnNetwork(torch.nn.Module):
     def __init__(self, encoder_hidden_size, attention_hidden_size, output_size, max_length):
@@ -88,23 +88,33 @@ class DynamicDeepHit(torch.nn.Module):
         DEVICE = self.device
 
         output_batch = torch.zeros_like(input_batch, device=DEVICE)
+        #(b,l,d)
         first_hitting_time_batch = torch.zeros((input_batch.size(0), self.causess.output_size), device=DEVICE)
+        #(b,l*k)
 
         for idx, data in enumerate(zip(input_batch, time_to_event_batch)):
 
             batch, tte = data
+            #(l,d)
 
             encoder_hidden_vector = torch.zeros(MAX_LENGTH, self.encoder.hidden_size, device=DEVICE)
+            #(l,h)
             encoder_output_vector = torch.zeros(MAX_LENGTH, self.encoder.input_size, device=DEVICE)
+            #(l,d)
             encoder_hidden = self.encoder.initHidden(device=DEVICE)
-
+            #(1,1,h)
+            
             last_measurement_index = int(tte.item())
+            #(1)
             last_measurement = batch[last_measurement_index]
+            #(d)
 
             #TODO Batch optimalisation should be made here, unroll time in parallel
             for ei in range(last_measurement_index):
                 encoder_input = batch[ei].view(1,1,-1)
+                #(1,1,d)
                 encoder_output, encoder_hidden = self.encoder(encoder_input, encoder_hidden)
+                #(1,1,d), (1,1,h)
                 encoder_hidden_vector[ei] = encoder_hidden[0,0]
                 encoder_output_vector[ei] = encoder_output
 

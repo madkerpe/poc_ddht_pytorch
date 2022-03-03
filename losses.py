@@ -15,7 +15,7 @@ def loss_1(first_hitting_time, event, time_of_event, max_length):
 
 def loss_3(encoder_output_vector, batch):
     mse_loss = MSELoss(reduction="sum")
-    return mse_loss(encoder_output_vector[:-1], batch.detach().squeeze(0)[1:])
+    return mse_loss(encoder_output_vector, batch.detach().squeeze(0)[1:])
 
 def loss_1_batch(first_hitting_time_batch, event_batch, time_to_event_batch, MAX_LENGTH):
     """
@@ -71,4 +71,4 @@ def loss_2_batch(first_hitting_time_batch, event_batch, time_to_event_batch, num
 
 def loss_3_batch(encoder_output_batch, input_batch):
     mse_loss = MSELoss(reduction="sum")
-    return mse_loss(encoder_output_batch[:,:-1], input_batch.detach()[:,1:])
+    return mse_loss(encoder_output_batch, input_batch.detach()[:,1:])

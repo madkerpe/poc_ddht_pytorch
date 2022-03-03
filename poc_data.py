@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import math
 
-length = 20
+length = 10
 num_covariates = 3  # This is not customisable
 
 
@@ -24,6 +24,10 @@ def generate_sample(id, latent_variable=None):
       time-delta between each measurement --> here it's constant
       time till event --> present
       actual event --> present)
+    
+    (tte - 1) == index of the last measurement
+    
+    
     """
 
     # define the latent variable

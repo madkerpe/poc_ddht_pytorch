@@ -82,7 +82,6 @@ class DynamicDeepHit(torch.nn.Module):
         self.device = device
 
     def forward(self, input_batch, time_to_event_batch):
-        MAX_LENGTH = self.max_length
         DEVICE = self.device
 
         output_batch = torch.zeros((input_batch.size(0), input_batch.size(1) - 1, input_batch.size(2)), device=DEVICE)
@@ -104,7 +103,7 @@ class DynamicDeepHit(torch.nn.Module):
             encoder_hidden = self.encoder.initHidden(device=DEVICE)
             #(1,1,h)
 
-            last_measurement_index = int(tte.item() - 1)
+            last_measurement_index = int(tte.item()) - 1
             #(1)
             last_measurement = sample[last_measurement_index]
             #(d)

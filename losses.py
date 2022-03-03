@@ -3,32 +3,21 @@ from torch.nn import MSELoss, CrossEntropyLoss
 
 _EPSILON = 1e-10
 
-def loss_1(first_hitting_time, event, time_of_event, max_length):
-    """
-    negative log likelihoo loss, assuming the batch dimension on the first dimension
-    """
-    event_observation_index = (event*max_length + time_of_event).long()
-    event_observation = torch.log(first_hitting_time[:,event_observation_index] + _EPSILON)
-    #kijk eens of hier niet nog expliciet in moet dat de rest nul moet zijn
-
-    return (-1)*torch.sum(event_observation)
-
-def loss_3(encoder_output_vector, batch):
-    mse_loss = MSELoss(reduction="sum")
-    return mse_loss(encoder_output_vector, batch.detach().squeeze(0)[1:])
 
 def loss_1_batch(first_hitting_time_batch, event_batch, time_to_event_batch, MAX_LENGTH):
-    """
-    TODO: negative log likelihood loss, assuming the batch dimension on the first dimension
-    """
-    batch_size = first_hitting_time_batch.size(0)
-    event_observation_index = (event_batch*MAX_LENGTH + time_to_event_batch).view(batch_size).long()
-    #event_observation = torch.log(first_hitting_time[:,event_observation_index] + _EPSILON)
-    #kijk eens of hier niet nog expliciet in moet dat de rest nul moet zijn
+    amount_of_events = first_hitting_time_batch.size(1)//MAX_LENGTH
+    sum = 0
+    
+    for idx, first_hitting_time in enumerate(first_hitting_time_batch):
+        event = int(event_batch[idx].item())
+        tte = int(time_to_event_batch[idx].item()) 
 
-    #we gebruiken nu tijdelijk gewoon de crossentropyloss, dan krijgen we een categorical distrib.
-    crl = CrossEntropyLoss(reduction="sum")
-    return crl(first_hitting_time_batch, event_observation_index)
+        numerator = first_hitting_time[amount_of_events*event + tte]
+        denomenator = 1 - torch.sum(first_hitting_time.view(amount_of_events, MAX_LENGTH)[:,:tte])
+
+        sum -= torch.log(numerator/denomenator)
+
+    return sum
 
 def eta(a,b, sigma):
     sigma = 1

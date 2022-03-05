@@ -12,7 +12,7 @@ def loss_1_batch(first_hitting_time_batch, event_batch, time_to_event_batch, MAX
         event = int(event_batch[idx].item())
         tte = int(time_to_event_batch[idx].item()) 
 
-        numerator = first_hitting_time[amount_of_events*event + tte]
+        numerator = first_hitting_time[MAX_LENGTH*event + tte]
         denomenator = 1 - torch.sum(first_hitting_time.view(amount_of_events, MAX_LENGTH)[:,:tte])
 
         sum -= torch.log((numerator/(denomenator + _EPSILON)) + _EPSILON)

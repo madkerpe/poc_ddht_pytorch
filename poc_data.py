@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import math
 
-length = 20
+length = 10
 num_covariates = 3  # This is not customisable
 
 

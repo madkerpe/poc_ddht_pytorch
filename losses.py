@@ -1,7 +1,7 @@
 import torch
 from torch.nn import MSELoss, CrossEntropyLoss
 
-_EPSILON = 1e-10
+_EPSILON = 1e-6
 
 
 def loss_1_batch(first_hitting_time_batch, event_batch, time_to_event_batch, MAX_LENGTH):
@@ -15,7 +15,7 @@ def loss_1_batch(first_hitting_time_batch, event_batch, time_to_event_batch, MAX
         numerator = first_hitting_time[amount_of_events*event + tte]
         denomenator = 1 - torch.sum(first_hitting_time.view(amount_of_events, MAX_LENGTH)[:,:tte])
 
-        sum -= torch.log(numerator/denomenator)
+        sum -= torch.log((numerator/(denomenator + _EPSILON)) + _EPSILON)
 
     return sum
 

@@ -85,7 +85,7 @@ class DynamicDeepHit(torch.nn.Module):
         DEVICE = self.device
 
         output_batch = torch.zeros((input_batch.size(0), input_batch.size(1) - 1, input_batch.size(2)), device=DEVICE)
-        #(b,l,d)
+        #(b,l-1,d)
         first_hitting_time_batch = torch.zeros((input_batch.size(0), self.causess.output_size), device=DEVICE)
         #(b,l*k)
 
@@ -93,6 +93,7 @@ class DynamicDeepHit(torch.nn.Module):
 
             sample, tte = data
             #(l,d)
+            tte = int(tte.item())
             observed_length = sample.size(0)
             #=l-1
 
@@ -103,14 +104,12 @@ class DynamicDeepHit(torch.nn.Module):
             encoder_hidden = self.encoder.initHidden(device=DEVICE)
             #(1,1,h)
 
-            last_measurement_index = int(tte.item()) - 1
-            #(1)
-            last_measurement = sample[last_measurement_index]
+            last_measurement = sample[tte - 1]
             #(d)
 
             #TODO Batch optimalisation should be made here, unroll time in parallel
             #Push every timestep except the last measurement through the encoder
-            for ei in range(last_measurement_index - 1):
+            for ei in range(tte - 1):
                 encoder_input = sample[ei].view(1,1,-1)
                 #(1,1,d)
                 encoder_output, encoder_hidden = self.encoder(encoder_input, encoder_hidden)

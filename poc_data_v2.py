@@ -69,7 +69,9 @@ def generate_sample():
         right_censor = math.floor(Z2*length)
         data = data[:right_censor]
 
-    return data, event
+    meta = {'X': X, 'Y': Y, 'Z1': Z1, 'Z2': Z2}
+
+    return data, event, meta
 
 def display_sample(sample):
     print("Event is %d, Length is %d" % (sample[1], sample[0].shape[0]))
@@ -81,17 +83,15 @@ class PocDataset(torch.utils.data.Dataset):
         torch.utils.data.Dataset.__init__(self)
         self.num_cases = num_cases
 
-        self.data = torch.zeros(num_cases, length, num_covariates)
+        self.data = []
         self.event = torch.zeros(num_cases, 1)
-        self.time_to_event = torch.zeros(num_cases, 1)
-        self._latent_variable = torch.zeros(num_cases, 1)
+        self.meta = []
 
         for i in range(num_cases):
-            data, time_to_event, event, _latent_variable = generate_sample(i)
-            self.data[i] = data
-            self.event[i] = event
-            self.time_to_event[i] = time_to_event
-            self._latent_variable[i] = _latent_variable
+            sample = generate_sample()
+            self.data.append(sample[0])
+            self.event[i] = sample[1]
+            self.meta.append(sample[2])
 
     def __len__(self):
         return self.num_cases
@@ -103,6 +103,11 @@ class PocDataset(torch.utils.data.Dataset):
         return (
             self.data[idx],
             self.event[idx],
-            self.time_to_event[idx],
-            self._latent_variable[idx],
+            self.meta[idx]
         )
+
+
+def custom_collate_fn(batch):
+    data = [item[0] for item in batch]
+    target = [item[1] for item in batch]
+    return [data, target]

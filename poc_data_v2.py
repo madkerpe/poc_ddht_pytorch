@@ -71,10 +71,10 @@ def generate_sample():
 
     meta = {'X': X, 'Y': Y, 'Z1': Z1, 'Z2': Z2}
 
-    return data, event, meta
+    return data, event
 
 def display_sample(sample):
-    print("Event is %d, Length is %d" % (sample[1], sample[0].shape[0]))
+    print("Length is %d, Event is %d" % (sample[0].shape[0], sample[1]))
     plt.plot(np.array(sample[0][:,0]), np.array(sample[0][:,3]))
     plt.plot(np.array(sample[0][:,0]), np.array(sample[0][:,4]))
 
@@ -85,13 +85,11 @@ class PocDataset(torch.utils.data.Dataset):
 
         self.data = []
         self.event = torch.zeros(num_cases, 1)
-        self.meta = []
 
         for i in range(num_cases):
             sample = generate_sample()
             self.data.append(sample[0])
             self.event[i] = sample[1]
-            self.meta.append(sample[2])
 
     def __len__(self):
         return self.num_cases
@@ -103,7 +101,6 @@ class PocDataset(torch.utils.data.Dataset):
         return (
             self.data[idx],
             self.event[idx],
-            self.meta[idx]
         )
 
 

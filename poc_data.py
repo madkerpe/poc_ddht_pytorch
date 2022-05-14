@@ -26,8 +26,6 @@ def generate_sample(id, latent_variable=None):
       actual event --> present)
     
     (tte - 1) == index of the last measurement
-    
-    
     """
 
     # define the latent variable

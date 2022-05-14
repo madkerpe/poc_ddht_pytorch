@@ -61,8 +61,8 @@ def generate_sample():
 
     # add some random noise on the start of the sample
     data[:, 0] = torch.arange(0, age, dtype=torch.float32)
-    data[:, 1] = age*torch.ones(age)
-    data[:, 2] = age - torch.arange(0, age, dtype=torch.float32) - 1
+    data[:, 1] = max_age*torch.ones(age)
+    data[:, 2] = max_age - torch.arange(0, age, dtype=torch.float32) - 1
     data[:, 3] = X*torch.sin(torch.arange(0, age, dtype=torch.float32) + X)
     data[:, 4] = Y*torch.cos(torch.arange(0, age, dtype=torch.float32) + Y)
 

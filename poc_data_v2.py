@@ -85,7 +85,7 @@ def generate_sample():
 
     return data, length, event, meta
 
-def display_sample(sample_data, sample_length, sample_event):
+def display_sample(sample_data, sample_length, sample_event, mute=False):
     """
     This function displays the following dimensions from a single sample out of the PocDataset
     using matplotlib:
@@ -96,7 +96,8 @@ def display_sample(sample_data, sample_length, sample_event):
     sample_length = sample_length.to(device='cpu')
     sample_event = sample_event.to(device='cpu')
 
-    print("Length is %d, Event is %d" % (sample_length, sample_event))
+    if not mute:
+        print("Length is %d, Event is %d" % (sample_length, sample_event))
     plt.plot(np.array(sample_data[:sample_length,0]), np.array(sample_data[:sample_length,3]))
     plt.plot(np.array(sample_data[:sample_length,0]), np.array(sample_data[:sample_length,4]))
 

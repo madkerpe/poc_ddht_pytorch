@@ -28,10 +28,9 @@ def generate_sample():
         data[:, 4] --> Y*cos(age + Y)
 
     event:
-        0 --> full repay
-        1 --> prepay
-        2 --> default
-        3 --> censored
+        0 --> prepay
+        1 --> default
+        2 --> censored
 
     censoring:
         if Z1 > 0.5 --> right censoring on position Z2*len(data)
@@ -44,16 +43,16 @@ def generate_sample():
 
     # deduce the event based on X and the age based on Y
     if X > 0.5:
-        ground_truth_event = 0
+        ground_truth_event = 2
         age = max_age
 
     elif X <= 0.25:
-        ground_truth_event = 1
+        ground_truth_event = 0
         age = max(math.floor(Y*max_age - epsilon), min_age)
         # length at least min_length, length max the max_length minus one
 
     else:
-        ground_truth_event = 2
+        ground_truth_event = 1
         age = max(math.floor(Y*max_age - epsilon), min_age)
 
     # reserve space for a data sample
@@ -75,7 +74,7 @@ def generate_sample():
     # censoring based on Z1 and Z2
     if Z1 > 0.5 and math.floor(Z2*age) > min_age:
         # we do right censoring
-        event = 3
+        event = 2
         right_censor = math.floor(Z2*age)
         data = data[:right_censor]
 

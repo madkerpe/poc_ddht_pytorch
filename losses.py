@@ -46,9 +46,9 @@ def loss_2_batch(first_hitting_time_batch, event_batch, time_to_event_batch, num
     batch_size = first_hitting_time_batch.size(0)
 
     if batch_size <= 1:
-        return torch.tensor([0]).to(device)
+        return torch.zeros(1).to(device)
 
-    total_ranking_loss = torch.tensor(0)
+    total_ranking_loss = torch.zeros(1).to(device)
     # iterate over every possible event
     for event in range(num_events):
 

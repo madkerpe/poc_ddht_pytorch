@@ -4,18 +4,29 @@ from torch.nn import MSELoss, CrossEntropyLoss
 _EPSILON = 1e-6
 
 
-def loss_1_batch(first_hitting_time_batch, event_batch, time_to_event_batch, MAX_LENGTH):
+def loss_1_batch(first_hitting_time_batch, event_batch, batch_data_length, MAX_LENGTH):
     amount_of_events = first_hitting_time_batch.size(1)//MAX_LENGTH
     sum = 0
     
+    
     for idx, first_hitting_time in enumerate(first_hitting_time_batch):
         event = int(event_batch[idx].item())
-        tte = int(time_to_event_batch[idx].item()) 
+        tte = int(batch_data_length[idx].item())
 
-        numerator = first_hitting_time[MAX_LENGTH*event + tte]
-        denomenator = 1 - torch.sum(first_hitting_time.view(amount_of_events, MAX_LENGTH)[:,:tte])
+        #For all samples that experience an event
+        if event != amount_of_events:
+            numerator = first_hitting_time.view(amount_of_events, MAX_LENGTH)[event, tte]
+            denomenator = 1 - torch.sum(first_hitting_time.view(amount_of_events, MAX_LENGTH)[:,:tte])
+            sum -= torch.log((numerator/(denomenator + _EPSILON)) + _EPSILON)
+            
+        #For all samples that experience no event (censoring)
+        else:
+            #we don't know which event the subject will experience, but we know the 
+            # subject didn't experience any event before the hitting time
+            numerator = torch.sum(first_hitting_time.view(amount_of_events, MAX_LENGTH)[:,tte-1])
+            denomenator = 1 - torch.sum(first_hitting_time.view(amount_of_events, MAX_LENGTH)[:,:tte-1])
+            sum -= torch.log(1 - (numerator/(denomenator + _EPSILON)) + _EPSILON)
 
-        sum -= torch.log((numerator/(denomenator + _EPSILON)) + _EPSILON)
 
     return sum
 
@@ -59,5 +70,5 @@ def loss_2_batch(first_hitting_time_batch, event_batch, time_to_event_batch, num
     return total_ranking_loss
 
 def loss_3_batch(encoder_output_batch, input_batch):
-    mse_loss = MSELoss(reduction="sum")
+    mse_loss = MSELoss(reduction="mean")
     return mse_loss(encoder_output_batch, input_batch.detach()[:,1:])

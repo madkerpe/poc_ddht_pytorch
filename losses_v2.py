@@ -70,5 +70,5 @@ def loss_2_batch(first_hitting_time_batch, event_batch, time_to_event_batch, num
     return total_ranking_loss
 
 def loss_3_batch(encoder_output_batch, input_batch):
-    mse_loss = MSELoss(reduction="sum")
+    mse_loss = MSELoss(reduction="mean")
     return mse_loss(encoder_output_batch, input_batch.detach()[:,1:])

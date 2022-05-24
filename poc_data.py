@@ -1,84 +1,147 @@
+from cgi import test
 import numpy as np
 import torch
 import math
+import matplotlib.pyplot as plt
 
-length = 10
-num_covariates = 3  # This is not customisable
+min_age = 5
+max_age = 12*3
+num_covariates = 5
+epsilon = 1e-6
 
-
-def generate_sample(id, latent_variable=None):
+def generate_sample():
     """
-    Generate a longitudional data sample, with 3 covariates,
-    first dimension is just an id
-    second dimension a linear increasing value
-    third dimension is the sinus of the linear increasing value
-    TODO maybe a fourth dimension that has more information of the dying process
-    TODO left & right censoring
+    info:
+        length = amount of data of the full age that is captured, so age >= length
 
-    There is one latent variable, a value between 0 and 1, the survival time is dependent 
-    on it AND it is present in the longitudional data by the amplitude of the sine function
+    latent data:
+        X ~ Unif(0,1)
+        Y ~ Unif(0,1)
+        Z1 ~ Unif(0,1)
+        Z2 ~ Unif(0,1)
+        age = full time of the underlying process
 
-    dataset in DDHT looks like this for each case:
-     (covariates, --> 3 covariates
-      mask vectors that indicates which covariates are missing, --> not present here yet
-      time-delta between each measurement --> here it's constant
-      time till event --> present
-      actual event --> present)
-    
-    (tte - 1) == index of the last measurement
-    
-    
+    data:
+        data[:, 0] --> current age in months
+        data[:, 1] --> original duration in months
+        data[:, 2] --> remaining months
+        data[:, 3] --> X*sin(age + X)
+        data[:, 4] --> Y*cos(age + Y)
+
+    event:
+        0 --> prepay
+        1 --> default
+        2 --> censored
+
+    censoring:
+        if Z1 > 0.5 --> right censoring on position Z2*len(data)
+        if Z1 < 0.5 --> no censoring
     """
 
-    # define the latent variable
-    if latent_variable == None:
-        latent_variable = 0.75*torch.rand(1) + 0.25
+    # define the latent variables X and Y
+    X = torch.rand(1)
+    Y = torch.rand(1)
 
-    # reserve space for the data sample
-    data = torch.zeros(length, num_covariates)
-    data[:, 0] = id * torch.ones(length)
+    # deduce the event based on X and the age based on Y
+    if X > 0.5:
+        ground_truth_event = 2
+        age = max_age
 
-    # make the time horizon dependent on the latent variable
-    time_to_event = 1 + math.floor((length - 1) * latent_variable)
+    elif X <= 0.25:
+        ground_truth_event = 0
+        age = max(math.floor(Y*max_age - epsilon), min_age)
+        # length at least min_length, length max the max_length minus one
+
+    else:
+        ground_truth_event = 1
+        age = max(math.floor(Y*max_age - epsilon), min_age)
+
+    # reserve space for a data sample
+    data = torch.zeros(age, num_covariates)
 
     # add some random noise on the start of the sample
-    random_start = 10 + 10 * torch.rand(1)
-    data[:, 1] = random_start + torch.tensor(np.linspace(0, 5 * np.pi, num=length))
+    data[:, 0] = torch.arange(0, age, dtype=torch.float32)
+    data[:, 1] = max_age*torch.ones(age)
+    data[:, 2] = max_age - torch.arange(0, age, dtype=torch.float32) - 1
+    data[:, 3] = 100*X*torch.sin(torch.arange(0, age, dtype=torch.float32) + X)
+    data[:, 4] = 100*Y*torch.cos(torch.arange(0, age, dtype=torch.float32) + Y)
 
-    # make the event dependent on the latent variable
-    if latent_variable <= 0.5:
-        event = 0
+    # define the latent variables Z1 and Z2
+    Z1 = torch.rand(1)
+    Z2 = torch.rand(1)
 
-    if latent_variable > 0.5:
-        event = 1
-        data[:, 2] = 2 * torch.sin(data[:, 1])
+    event = ground_truth_event
 
-    # make the longitudional data dependent on the latent variable
-    data[:, 2] = latent_variable * torch.sin(data[:, 1])
+    # censoring based on Z1 and Z2
+    censored = False
+    if Z1 > 0.5 and math.floor(Z2*age) > min_age:
+        # we do right censoring
+        event = 2
+        right_censor = math.floor(Z2*age)
+        data = data[:right_censor]
+        censored = True
 
-    # set everything after the event to zero
-    if time_to_event < length:
-        data[time_to_event:, :] = torch.zeros(length - time_to_event, num_covariates)
+    length = data.shape[0]
 
-    return data, time_to_event, event, latent_variable
+    meta = {'age': age, "ground_truth_event": ground_truth_event, 'X': X, 'Y': Y, 'Z1': Z1, 'Z2': Z2, 'censored': censored}
 
+    return data, length, event, meta
+
+def generate_test_sample(repays=True):
+    sample = generate_sample()
+    if repays:
+        while not sample[3]['censored']:
+            sample = generate_sample()
+    else:
+        while not sample[3]['censored'] or sample[3]['ground_truth_event'] == 2:
+            sample = generate_sample()    
+    
+    return sample
+
+def display_sample(sample_data, sample_length, sample_event, mute=False):
+    """
+    This function displays the following dimensions from a single sample out of the PocDataset
+    using matplotlib:
+        data[:, 3] --> X*sin(age + X)
+        data[:, 4] --> Y*cos(age + Y)
+    """
+    sample_data = sample_data.to(device='cpu')
+    sample_length = sample_length.to(device='cpu')
+    sample_event = sample_event.to(device='cpu')
+
+    if not mute:
+        print("Length is %d, Event is %d" % (sample_length, sample_event))
+    plt.plot(np.array(sample_data[:sample_length,0]), np.array(sample_data[:sample_length,3]))
+    plt.plot(np.array(sample_data[:sample_length,0]), np.array(sample_data[:sample_length,4]))
 
 class PocDataset(torch.utils.data.Dataset):
-    def __init__(self, num_cases=1024):
+    """
+    this dataset uses the generate_sample() function
+    it padds the samples with zeros at the end and 
+    puts them into a pytorch dataset class
+    """
+    def __init__(self, num_cases=1024, generate_meta=False, test_set=False, repays=True):
         torch.utils.data.Dataset.__init__(self)
         self.num_cases = num_cases
+        self.generate_meta = generate_meta
+        self.test_set = test_set
+        self.repays = repays
 
-        self.data = torch.zeros(num_cases, length, num_covariates)
-        self.event = torch.zeros(num_cases, 1)
-        self.time_to_event = torch.zeros(num_cases, 1)
-        self._latent_variable = torch.zeros(num_cases, 1)
+        self.data = torch.zeros(num_cases, max_age, num_covariates)
+        self.data_length = torch.zeros(num_cases, 1, dtype=torch.long)
+        self.event = torch.zeros(num_cases, 1, dtype=torch.long)
+        self.meta = []
 
         for i in range(num_cases):
-            data, time_to_event, event, _latent_variable = generate_sample(i)
-            self.data[i] = data
-            self.event[i] = event
-            self.time_to_event[i] = time_to_event
-            self._latent_variable[i] = _latent_variable
+            if self.test_set:
+                sample = generate_test_sample(self.repays)
+            else:
+                sample = generate_sample()
+            sample_length = sample[1]
+            self.data[i,:sample_length] = sample[0]
+            self.data_length[i] = sample_length
+            self.event[i] = sample[2]
+            self.meta.append(sample[3])
 
     def __len__(self):
         return self.num_cases
@@ -87,9 +150,16 @@ class PocDataset(torch.utils.data.Dataset):
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
-        return (
-            self.data[idx],
-            self.event[idx],
-            self.time_to_event[idx],
-            self._latent_variable[idx],
-        )
+        if self.generate_meta:
+            return (
+                self.data[idx],
+                self.data_length[idx],
+                self.event[idx],
+                self.meta[idx]
+            )
+        else:
+            return (
+                self.data[idx],
+                self.data_length[idx],
+                self.event[idx]
+            )

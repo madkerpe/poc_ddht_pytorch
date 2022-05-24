@@ -5,7 +5,7 @@ import math
 import matplotlib.pyplot as plt
 
 min_age = 5
-max_age = 12*3
+max_age = 12*2
 num_covariates = 5
 epsilon = 1e-6
 

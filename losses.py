@@ -1,7 +1,7 @@
 import torch
 from torch.nn import MSELoss, CrossEntropyLoss
 
-_EPSILON = 1e-6
+_EPSILON = 1e-9
 
 
 def loss_1_batch(first_hitting_time_batch, event_batch, batch_data_length, MAX_LENGTH):
@@ -14,17 +14,25 @@ def loss_1_batch(first_hitting_time_batch, event_batch, batch_data_length, MAX_L
         tte = int(batch_data_length[idx].item())
 
         #For all samples that experience an event
-        if event != amount_of_events:
-            numerator = first_hitting_time.view(amount_of_events, MAX_LENGTH)[event, tte]
-            denomenator = 1 - torch.sum(first_hitting_time.view(amount_of_events, MAX_LENGTH)[:,:tte])
+        if event == 0 or event == 1:
+            numerator = first_hitting_time.view(amount_of_events, MAX_LENGTH)[event, tte-1]
+            denomenator = 1 - torch.sum(first_hitting_time.view(amount_of_events, MAX_LENGTH)[:,:tte-1])
             sum -= torch.log((numerator/(denomenator + _EPSILON)) + _EPSILON)
+
+        elif event == 2:
+            #we know that tte will be MAX_LENGTH
+            #we can't put the denomenator here, because it is the complement of the numerator, 
+            # since there is no space behind the last measurement, in contrast to event 0 and 1
+            numerator = first_hitting_time.view(amount_of_events, MAX_LENGTH)[event, tte-1]
+            sum -= torch.log(numerator+ _EPSILON)
+
             
         #For all samples that experience no event (censoring)
         else:
             #we don't know which event the subject will experience, but we know the 
             # subject didn't experience any event before the hitting time
-            numerator = torch.sum(first_hitting_time.view(amount_of_events, MAX_LENGTH)[:,tte-1])
-            denomenator = 1 - torch.sum(first_hitting_time.view(amount_of_events, MAX_LENGTH)[:,:tte-1])
+            numerator = torch.sum(first_hitting_time.view(amount_of_events, MAX_LENGTH)[:,tte-2]) #Ik heb het vermoeden dat dit eigenlijk weg mag, omdat dit nu gewoon een restant is van continu naar discreet
+            denomenator = 1 - torch.sum(first_hitting_time.view(amount_of_events, MAX_LENGTH)[:,:tte-2])
             sum -= torch.log(1 - (numerator/(denomenator + _EPSILON)) + _EPSILON)
 
 
@@ -65,7 +73,7 @@ def loss_2_batch(first_hitting_time_batch, event_batch, batch_data_length, num_e
             
             for cif, tte in zip(cif_batch, batch_data_length):
                 if tte_with_correct_event < tte:
-                    total_ranking_loss += eta(cif_with_correct_event[tte_with_correct_event.long()] , cif[tte_with_correct_event.long()], sigma)
+                    total_ranking_loss += eta(cif_with_correct_event[tte_with_correct_event.long() - 1] , cif[tte_with_correct_event.long() - 1], sigma)
             
 
     return total_ranking_loss/batch_size

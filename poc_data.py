@@ -31,7 +31,8 @@ def generate_sample():
     event:
         0 --> prepay
         1 --> default
-        2 --> censored
+        2 --> full repay
+        3 --> censored
 
     censoring:
         if Z1 > 0.5 --> right censoring on position Z2*len(data)
@@ -76,7 +77,7 @@ def generate_sample():
     censored = False
     if Z1 > 0.5 and math.floor(Z2*age) > min_age:
         # we do right censoring
-        event = 2
+        event = 3
         right_censor = math.floor(Z2*age)
         data = data[:right_censor]
         censored = True

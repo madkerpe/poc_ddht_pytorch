@@ -1,7 +1,7 @@
 import torch
 from torch.nn import MSELoss, CrossEntropyLoss
 
-_EPSILON = 1e-9
+_EPSILON = 1e-6
 
 
 def loss_1_batch(first_hitting_time_batch, event_batch, batch_data_length, MAX_LENGTH):
@@ -39,7 +39,6 @@ def loss_1_batch(first_hitting_time_batch, event_batch, batch_data_length, MAX_L
     return sum
 
 def eta(a,b, sigma):
-    sigma = 0.1
     return torch.exp((-1)*(a-b)/sigma)
 
 #LOSS_2_AMPLIFIER*loss_2_batch(first_hitting_time_batch, batch_event, batch_data_length, NUM_CAUSES, MAX_LENGTH, SIGMA, DEVICE)

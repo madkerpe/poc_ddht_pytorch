@@ -4,14 +4,14 @@ from torch.nn import MSELoss, CrossEntropyLoss
 _EPSILON = 1e-6
 
 
-def loss_1_batch(first_hitting_time_batch, event_batch, batch_data_length, MAX_LENGTH):
+def loss_1_batch(first_hitting_time_batch, event_batch, batch_tte, MAX_LENGTH):
     amount_of_events = first_hitting_time_batch.size(1)//MAX_LENGTH
     sum = 0
     
     
     for idx, first_hitting_time in enumerate(first_hitting_time_batch):
         event = int(event_batch[idx].item())
-        tte = int(batch_data_length[idx].item())
+        tte = int(batch_tte[idx].item())
 
         #For all samples that experience an event
         if event == 0 or event == 1:
@@ -42,7 +42,7 @@ def eta(a,b, sigma):
     return torch.exp((-1)*(a-b)/sigma)
 
 #LOSS_2_AMPLIFIER*loss_2_batch(first_hitting_time_batch, batch_event, batch_data_length, NUM_CAUSES, MAX_LENGTH, SIGMA, DEVICE)
-def loss_2_batch(first_hitting_time_batch, event_batch, batch_data_length, num_events, max_length, sigma, device):
+def loss_2_batch(first_hitting_time_batch, event_batch, batch_tte, num_events, max_length, sigma, device):
     """
     concordance loss
 
@@ -65,12 +65,12 @@ def loss_2_batch(first_hitting_time_batch, event_batch, batch_data_length, num_e
 
         # get the CIF where our event equals the one we're considering
         all_cif_with_correct_event = cif_batch[event_batch.view(batch_size) == event]
-        all_tte_with_correct_event = batch_data_length[event_batch.view(batch_size) == event]
+        all_tte_with_correct_event = batch_tte[event_batch.view(batch_size) == event]
         
         # compare the selected CIF's with every CIF that has a hitting time after our selected one
         for cif_with_correct_event, tte_with_correct_event in zip(all_cif_with_correct_event, all_tte_with_correct_event):
             
-            for cif, tte in zip(cif_batch, batch_data_length):
+            for cif, tte in zip(cif_batch, batch_tte):
                 if tte_with_correct_event < tte:
                     total_ranking_loss += eta(cif_with_correct_event[tte_with_correct_event.long() - 1] , cif[tte_with_correct_event.long() - 1], sigma)
             

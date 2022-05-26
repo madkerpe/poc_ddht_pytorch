@@ -94,7 +94,7 @@ def generate_test_sample(repays=True):
         while not sample[3]['censored']:
             sample = generate_sample()
     else:
-        while not sample[3]['censored']:
+        while not sample[3]['censored'] or sample[3]['ground_truth_event'] == 2:
             sample = generate_sample()    
     
     return sample

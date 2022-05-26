@@ -1,8 +1,8 @@
-from cgi import test
 import numpy as np
 import torch
 import math
 import matplotlib.pyplot as plt
+import copy
 
 min_age = 5
 max_age = 12*2
@@ -84,7 +84,7 @@ def generate_sample():
 
     length = data.shape[0]
 
-    meta = {'age': age, "ground_truth_event": ground_truth_event, 'X': X, 'Y': Y, 'Z1': Z1, 'Z2': Z2, 'censored': censored}
+    meta = {'age': age, "ground_truth_event": ground_truth_event, 'X': X, 'Y': Y, 'Z1': Z1, 'Z2': Z2, 'censored': censored, 'augmented': False}
 
     return data, length, event, meta
 
@@ -121,28 +121,55 @@ class PocDataset(torch.utils.data.Dataset):
     it padds the samples with zeros at the end and 
     puts them into a pytorch dataset class
     """
-    def __init__(self, num_cases=1024, generate_meta=False, test_set=False, repays=True):
+    def __init__(self, num_cases=1024, test_set=False, repays=True, augment=False):
         torch.utils.data.Dataset.__init__(self)
         self.num_cases = num_cases
-        self.generate_meta = generate_meta
         self.test_set = test_set
         self.repays = repays
+        self.augment = augment
+        self.augment_factor = 3
 
         self.data = torch.zeros(num_cases, max_age, num_covariates)
         self.data_length = torch.zeros(num_cases, 1, dtype=torch.long)
         self.event = torch.zeros(num_cases, 1, dtype=torch.long)
+        self.tte = torch.zeros(num_cases, 1, dtype=torch.long)
         self.meta = []
 
-        for i in range(num_cases):
+        i = 0
+        while i < num_cases:
             if self.test_set:
                 sample = generate_test_sample(self.repays)
             else:
                 sample = generate_sample()
             sample_length = sample[1]
-            self.data[i,:sample_length] = sample[0]
-            self.data_length[i] = sample_length
-            self.event[i] = sample[2]
-            self.meta.append(sample[3])
+
+            #TODO this can be much cleaner by using sample_generators with parameters
+            if self.augment and sample_length > 8 and (sample[2] == 0 or sample[2] == 1) and i + self.augment_factor < num_cases:
+                self.data[i,:sample_length] = sample[0]
+                self.data_length[i] = sample_length
+                self.event[i] = sample[2]
+                self.tte[i] = sample_length
+                self.meta.append(sample[3])
+                i += 1
+
+                for _ in range(self.augment_factor - 1):
+                    augmented_sample = copy.deepcopy(sample)
+                    augment_censor_index = int(torch.randint(min_age,sample_length + 1,(1,)))
+                    self.data[i,:augment_censor_index] = augmented_sample[0][:augment_censor_index]
+                    self.data_length[i] = augment_censor_index
+                    self.event[i] = augmented_sample[2]
+                    augmented_sample[3]["augmented"] = True
+                    self.tte[i] = sample_length
+                    self.meta.append(augmented_sample[3])
+                    i+=1
+
+            else:
+                self.data[i,:sample_length] = sample[0]
+                self.data_length[i] = sample_length
+                self.event[i] = sample[2]
+                self.tte[i] = sample_length
+                self.meta.append(sample[3])
+                i += 1
 
     def __len__(self):
         return self.num_cases
@@ -151,16 +178,10 @@ class PocDataset(torch.utils.data.Dataset):
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
-        if self.generate_meta:
-            return (
-                self.data[idx],
-                self.data_length[idx],
-                self.event[idx],
-                self.meta[idx]
-            )
-        else:
-            return (
-                self.data[idx],
-                self.data_length[idx],
-                self.event[idx]
-            )
+        return (
+            self.data[idx],
+            self.data_length[idx],
+            self.event[idx],
+            self.tte[idx],
+            self.meta[idx]
+        )

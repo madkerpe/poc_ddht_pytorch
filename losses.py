@@ -1,48 +1,69 @@
 import torch
-from torch.nn import MSELoss, CrossEntropyLoss
+from torch.nn import MSELoss
 
-_EPSILON = 1e-6
+_EPSILON = 1e-9
 
+def CIF_K_tau(first_hitting_time, event_k, tte, data_length, MAX_LENGTH):
+    #last measurement is on index "data_length - 1"
+    #event_time is on index "data_length"
+    amount_of_events = first_hitting_time.size(0)//MAX_LENGTH
+    numerator = torch.sum(first_hitting_time.view(amount_of_events, MAX_LENGTH)[event_k][data_length - 1:tte])
+    denomenator = 1 - torch.sum(first_hitting_time.view(amount_of_events, MAX_LENGTH)[:,:data_length - 1])
+    #print("numerator=", numerator)
+    #print("denomenator=", denomenator)
+    return numerator/(denomenator + _EPSILON)
 
-def loss_1_batch(first_hitting_time_batch, event_batch, batch_tte, MAX_LENGTH):
-    amount_of_events = first_hitting_time_batch.size(1)//MAX_LENGTH
-    sum = 0
+def CIF_K(first_hitting_time, event_k, data_length, MAX_LENGTH):
+    #This would all be more optimal to do in batches, but we're debugging, so we keep it simple, optimise later
+    cif_k = torch.zeros(MAX_LENGTH)
     
+    for i in range(MAX_LENGTH):
+        cif_k[i] = CIF_K_tau(first_hitting_time, event_k, i+1, data_length, MAX_LENGTH)
+
+    return cif_k
+
+def CIF(first_hitting_time, data_length, MAX_LENGTH):
+    amount_of_events = first_hitting_time.size(0)//MAX_LENGTH
+    cif = torch.zeros(amount_of_events, MAX_LENGTH)
+    
+    for event in range(amount_of_events):
+        cif[event] = CIF_K(first_hitting_time, event, data_length, MAX_LENGTH)
+        #print("CIF_K=", CIF_K(first_hitting_time, event, data_length, MAX_LENGTH))
+
+    return cif
+
+def eta(a,b, sigma):
+    return torch.exp((-1)*(a-b)/sigma)
+
+def loss_1_batch(first_hitting_time_batch, event_batch, batch_tte, batch_data_length, MAX_LENGTH, device='cpu'):
+    sum = torch.zeros(1).to(device)
+    amount_of_events = first_hitting_time_batch.size(1)//MAX_LENGTH
     
     for idx, first_hitting_time in enumerate(first_hitting_time_batch):
         event = int(event_batch[idx].item())
         tte = int(batch_tte[idx].item())
+        data_length = int(batch_data_length[idx].item())
 
         #For all samples that experience an event
-        if event == 0 or event == 1:
+        if event == 0 or event == 1 or event == 2:
             numerator = first_hitting_time.view(amount_of_events, MAX_LENGTH)[event, tte-1]
-            denomenator = 1 - torch.sum(first_hitting_time.view(amount_of_events, MAX_LENGTH)[:,:tte-1])
+            denomenator = 1 - torch.sum(first_hitting_time.view(amount_of_events, MAX_LENGTH)[:,:data_length - 1])
             sum -= torch.log((numerator/(denomenator + _EPSILON)) + _EPSILON)
-
-        elif event == 2:
-            #we know that tte will be MAX_LENGTH
-            #we can't put the denomenator here, because it is the complement of the numerator, 
-            # since there is no space behind the last measurement, in contrast to event 0 and 1
-            numerator = first_hitting_time.view(amount_of_events, MAX_LENGTH)[event, tte-1]
-            sum -= torch.log(numerator+ _EPSILON)
-
             
         #For all samples that experience no event (censoring)
         else:
             #we don't know which event the subject will experience, but we know the 
             # subject didn't experience any event before the hitting time
-            numerator = torch.sum(first_hitting_time.view(amount_of_events, MAX_LENGTH)[:,tte-2]) #Ik heb het vermoeden dat dit eigenlijk weg mag, omdat dit nu gewoon een restant is van continu naar discreet
-            denomenator = 1 - torch.sum(first_hitting_time.view(amount_of_events, MAX_LENGTH)[:,:tte-2])
-            sum -= torch.log(1 - (numerator/(denomenator + _EPSILON)) + _EPSILON)
+            cif = torch.sum(CIF(first_hitting_time, data_length, MAX_LENGTH)[:,data_length-2]) #Waarom is dit -2?
+            #print("data_length=", data_length)
+            #print("CIF=", CIF(first_hitting_time, data_length, MAX_LENGTH))
+            sum -= torch.log(1 - cif)
+            #TODO
 
 
     return sum
 
-def eta(a,b, sigma):
-    return torch.exp((-1)*(a-b)/sigma)
-
-#LOSS_2_AMPLIFIER*loss_2_batch(first_hitting_time_batch, batch_event, batch_data_length, NUM_CAUSES, MAX_LENGTH, SIGMA, DEVICE)
-def loss_2_batch(first_hitting_time_batch, event_batch, batch_tte, num_events, max_length, sigma, device):
+def loss_2_batch(first_hitting_time_batch, event_batch, batch_tte, batch_data_length, num_events, max_length, sigma, device='cpu'):
     """
     concordance loss
 
@@ -52,16 +73,18 @@ def loss_2_batch(first_hitting_time_batch, event_batch, batch_tte, num_events, m
     TODO: test grondig
     """
     batch_size = event_batch.size(0)
+    total_ranking_loss = torch.zeros(1).to(device)
 
     if batch_size <= 1:
-        return torch.zeros(1).to(device)
+        return total_ranking_loss
 
-    total_ranking_loss = torch.zeros(1).to(device)
     # iterate over every possible event
     for event in range(num_events):
 
         # get the cummulative sum of the batch for the considered event
-        cif_batch = torch.cumsum(first_hitting_time_batch[:,event*max_length:(event+1)*max_length], dim=1)
+        cif_batch = torch.zeros(batch_size, max_length).to(device)
+        for i, first_hitting_time in enumerate(first_hitting_time_batch):
+            cif_batch[i] = CIF_K(first_hitting_time, event, batch_data_length[i], max_length)
 
         # get the CIF where our event equals the one we're considering
         all_cif_with_correct_event = cif_batch[event_batch.view(batch_size) == event]

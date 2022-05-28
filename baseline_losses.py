@@ -1,6 +1,6 @@
 import torch
 
-_EPSILON = 1e-6
+_EPSILON = 1e-9
 
 def CIF_K(first_hitting_time, event_k, MAX_LENGTH):
     #This would all be more optimal to do in batches, but we're debugging, so we keep it simple
@@ -32,8 +32,8 @@ def loss_1_batch(first_hitting_time_batch, event_batch, batch_tte, MAX_LENGTH, d
         else:
             #we don't know which event the subject will experience, but we know the 
             # subject didn't experience any event before the hitting time
-            numerator = torch.sum(CIF(first_hitting_time, MAX_LENGTH)[:,tte-2])
-            sum -= torch.log(1 - numerator + _EPSILON)
+            cif = torch.sum(CIF(first_hitting_time, MAX_LENGTH)[:,tte-2])
+            sum -= torch.log(1 - cif + _EPSILON)
 
     return sum
 

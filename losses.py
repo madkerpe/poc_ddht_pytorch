@@ -57,7 +57,7 @@ def loss_1_batch(first_hitting_time_batch, event_batch, batch_tte, batch_data_le
             cif = torch.sum(CIF(first_hitting_time, data_length, MAX_LENGTH)[:,data_length-2]) #Waarom is dit -2?
             #print("data_length=", data_length)
             #print("CIF=", CIF(first_hitting_time, data_length, MAX_LENGTH))
-            sum -= torch.log(1 - cif)
+            sum -= torch.log(1 - cif + _EPSILON)
             #TODO
 
 

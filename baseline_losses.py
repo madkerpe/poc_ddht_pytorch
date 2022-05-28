@@ -15,7 +15,7 @@ def eta(a,b, sigma):
 
 def loss_1_batch(first_hitting_time_batch, event_batch, batch_tte, MAX_LENGTH, device="cpu"):
     sum = torch.zeros(1).to(device)
-    amount_of_events = first_hitting_time.size(0)//MAX_LENGTH
+    amount_of_events = first_hitting_time_batch.size(1)//MAX_LENGTH
 
     for idx, first_hitting_time in enumerate(first_hitting_time_batch):
         event = int(event_batch[idx].item())

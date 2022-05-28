@@ -2,7 +2,7 @@ import torch
 
 _EPSILON = 1e-6
 
-def CIF_k(first_hitting_time, event_k, MAX_LENGTH):
+def CIF_K(first_hitting_time, event_k, MAX_LENGTH):
     #This would all be more optimal to do in batches, but we're debugging, so we keep it simple
     return torch.cumsum(first_hitting_time[event_k*MAX_LENGTH:(event_k+1)*MAX_LENGTH], dim=0)
 
@@ -15,6 +15,7 @@ def eta(a,b, sigma):
 
 def loss_1_batch(first_hitting_time_batch, event_batch, batch_tte, MAX_LENGTH, device="cpu"):
     sum = torch.zeros(1).to(device)
+    amount_of_events = first_hitting_time.size(0)//MAX_LENGTH
 
     for idx, first_hitting_time in enumerate(first_hitting_time_batch):
         event = int(event_batch[idx].item())
@@ -22,8 +23,10 @@ def loss_1_batch(first_hitting_time_batch, event_batch, batch_tte, MAX_LENGTH, d
 
         #For all samples that experience an event
         if event == 0 or event == 1 or event == 2:
-            numerator = CIF_k(first_hitting_time, event, MAX_LENGTH)[tte-1]
+            numerator = first_hitting_time.view(amount_of_events, MAX_LENGTH)[event, tte-1]
             sum -= torch.log(numerator + _EPSILON)
+
+            
             
         #For all samples that experience no event (censoring)
         else:
@@ -55,7 +58,7 @@ def loss_2_batch(first_hitting_time_batch, event_batch, batch_tte, num_events, m
         # get the cummulative sum of the batch for the considered event
         cif_batch = torch.zeros(batch_size, max_length).to(device)
         for i, first_hitting_time in enumerate(first_hitting_time_batch):
-            cif_batch[i] = CIF_k(first_hitting_time, event, max_length)
+            cif_batch[i] = CIF_K(first_hitting_time, event, max_length)
 
 
         # get the CIF where our event equals the one we're considering

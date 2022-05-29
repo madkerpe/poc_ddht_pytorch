@@ -144,7 +144,7 @@ class PocDataset(torch.utils.data.Dataset):
             sample_length = sample[1]
 
             #TODO this can be much cleaner by using sample_generators with parameters
-            if self.augment and sample_length > 8 and (sample[2] == 0 or sample[2] == 1) and i + self.augment_factor < num_cases:
+            if self.augment and sample_length > 8 and (sample[2] == 0 or sample[2] == 1 or sample[2] == 2) and i + self.augment_factor < num_cases:
                 self.data[i,:sample_length] = sample[0]
                 self.data_length[i] = sample_length
                 self.event[i] = sample[2]

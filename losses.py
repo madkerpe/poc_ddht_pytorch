@@ -1,7 +1,7 @@
 import torch
 from torch.nn import MSELoss
 
-_EPSILON = 1e-9
+_EPSILON = 1e-6
 
 def CIF_K_tau(first_hitting_time, event_k, tte, data_length, MAX_LENGTH):
     #last measurement is on index "data_length - 1"
@@ -48,7 +48,10 @@ def loss_1_batch(first_hitting_time_batch, event_batch, batch_tte, batch_data_le
         if event == 0 or event == 1 or event == 2:
             numerator = first_hitting_time.view(amount_of_events, MAX_LENGTH)[event, tte-1]
             denomenator = 1 - torch.sum(first_hitting_time.view(amount_of_events, MAX_LENGTH)[:,:data_length - 1])
-            sum -= torch.log((numerator/(denomenator + _EPSILON)) + _EPSILON)
+            test = torch.log((numerator/(denomenator + _EPSILON)) + _EPSILON)
+            if torch.isnan(test).any():
+                print("first NAN is in sample that sees event")
+            sum -= test
             
         #For all samples that experience no event (censoring)
         else:
@@ -57,9 +60,10 @@ def loss_1_batch(first_hitting_time_batch, event_batch, batch_tte, batch_data_le
             cif = torch.sum(CIF(first_hitting_time, data_length, MAX_LENGTH)[:,data_length-2]) #Waarom is dit -2?
             #print("data_length=", data_length)
             #print("CIF=", CIF(first_hitting_time, data_length, MAX_LENGTH))
-            sum -= torch.log(1 - cif + _EPSILON)
-            #TODO
-
+            test = torch.log(1 - cif + _EPSILON)
+            if torch.isnan(test).any():
+                print("first NAN is in sample that is censored")
+            sum -= test
 
     return sum
 

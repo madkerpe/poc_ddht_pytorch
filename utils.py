@@ -87,3 +87,37 @@ def plot_gamma(gamma):
     ax0.set_ylim([-1,1]);
     ax1.set_ylim([-1,1]);
     ax2.set_ylim([-1,1]);
+
+def plot_attention_weights_batch(attention_weights_batch, data_length_batch, normalised=True):
+    fig, ax = plt.subplots(1,figsize=(10,5))
+    
+    attention_weights_batch = attention_weights_batch.cpu()
+    data_length_batch = data_length_batch.cpu()
+
+
+    batch_size = attention_weights_batch.shape[0]
+    attention_weights_length = attention_weights_batch.shape[1]
+    normalization_vector = torch.zeros(attention_weights_length)
+
+    attention_weights = (1.0/batch_size)*torch.sum(attention_weights_batch, dim=0)
+
+    if normalised:
+        for length in data_length_batch:
+            normalization_vector[:length] += torch.ones(length)
+
+        normalization_vector = (1/batch_size)*normalization_vector
+        attention_weights = torch.div(attention_weights,normalization_vector)
+
+    else: 
+        print("WARNING: This function isn't normalised in length of samples")
+
+    ax.bar([i for i in range(attention_weights_length)], attention_weights.cpu().detach().numpy())
+    ax.set_ylim([0,1]);
+
+def plot_attention_weights(attention_weights):
+    fig, ax = plt.subplots(1,figsize=(10,5))
+
+    attention_weights_length = attention_weights.shape[0]
+
+    ax.bar([i for i in range(attention_weights_length)], attention_weights.cpu().detach().numpy())
+    ax.set_ylim([0,1]);

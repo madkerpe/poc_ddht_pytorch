@@ -51,7 +51,7 @@ class AttnDecoderRNN(torch.nn.Module):
         attn_weights = self.attn(last_measurement, encoder_hidden_vector)
         context_vector = torch.mm(torch.transpose(attn_weights, 0, 1), encoder_hidden_vector)
 
-        return context_vector
+        return context_vector, attn_weights
 
 class CauseSpecificSubnetwork(torch.nn.Module):
     def __init__(self, hidden_size, input_size, max_length, num_causes):
@@ -88,6 +88,7 @@ class DynamicDeepHit(torch.nn.Module):
         #(b,l-1,d)
         first_hitting_time_batch = torch.zeros((input_batch.size(0), self.causess.output_size), device=DEVICE)
         #(b,l*k)
+        attn_weights_batch = torch.zeros((input_batch.size(0), self.max_length - 1), device=DEVICE)
 
         for idx, data in enumerate(zip(input_batch, data_length_batch)):
 
@@ -120,7 +121,8 @@ class DynamicDeepHit(torch.nn.Module):
             output_batch[idx] = encoder_output_vector
         
             #TODO Batch optimalisation can be made here
-            context_vector = self.decoder(last_measurement, encoder_hidden_vector)
+            context_vector, attn_weights = self.decoder(last_measurement, encoder_hidden_vector)
+            attn_weights_batch[idx] = attn_weights.view(self.max_length - 1)
             first_hitting_time_batch[idx] = self.causess(context_vector, last_measurement)
 
-        return output_batch, first_hitting_time_batch
+        return output_batch, first_hitting_time_batch, attn_weights_batch

@@ -71,3 +71,19 @@ def plot_fht_and_cif_baseline(first_hitting_time, MAX_LENGTH):
     ax11.set_ylim([0,1]);
     ax12.set_ylim([0,1]);
     
+def plot_gamma(gamma):
+    fig, (ax0, ax1, ax2) = plt.subplots(1,3,figsize=(10,5))
+
+    input_size = gamma.shape[1]
+
+    ax0.bar([i for i in range(input_size)], gamma[0].cpu().detach().numpy())
+    ax1.bar([i for i in range(input_size)], gamma[1].cpu().detach().numpy())
+    ax2.bar([i for i in range(input_size)], gamma[2].cpu().detach().numpy())
+    
+    ax0.set_title("indicators prepay event")
+    ax1.set_title("indicators default event")
+    ax2.set_title("indicators default event")
+
+    ax0.set_ylim([-1,1]);
+    ax1.set_ylim([-1,1]);
+    ax2.set_ylim([-1,1]);

@@ -19,8 +19,10 @@ class FREDDIEMAC_basline_dataset(torch.utils.data.Dataset):
         self.test_set = test_set
         self.augment = augment
         self.augment_factor = data_augment_factor
+        self.min_length = min_age
+        self.max_length = max_age
 
-        self.dataframe = dataframe #.compute()
+        self.dataframe = dataframe
 
         self.allowed_covariates = allowed_covariates
         self.TIME_TO_EVENT_covariate = TIME_TO_EVENT_covariate
@@ -32,6 +34,15 @@ class FREDDIEMAC_basline_dataset(torch.utils.data.Dataset):
 
     def __len__(self):
         return self.num_cases
+
+    def get_num_covariates(self):
+        return self.num_covariates
+
+    def get_min_length(self):
+        return self.min_length
+
+    def get_max_length(self):
+        return self.max_length
 
     def __getitem__(self, idx):
         if torch.is_tensor(idx):
@@ -66,23 +77,15 @@ class FREDDIEMAC_dataloader():
     def __iter__(self):
         return self
 
+    def __len__(self):
+        return self.max_iterations
+
+    def get_max_iterations(self):
+        return self.max_iterations
+
     def __next__(self):
         if self.iterator_count >= self.max_iterations:
-            raise StopIteration
-        else:
-            self.iterator_count += 1
-
-            return self.dataset[self.iterator_count * self.batch_size:(self.iterator_count + 1) * self.batch_size]
-
-def display_sample(sample_data, sample_length, sample_event):
-    """
-    This function displays the following dimensions from a single sample out of the PocDataset
-    using matplotlib:
-        data[:, 3] --> X*sin(age + X)
-        data[:, 4] --> Y*cos(age + Y)
-    """
-    sample_data = sample_data.to(device='cpu')
-    sample_length = sample_length.to(device='cpu')
-    sample_event = sample_event.to(device='cpu')
-
-    
+            self.iterator_count = 0
+        
+        sample = self.dataset[self.iterator_count * self.batch_size:(self.iterator_count + 1) * self.batch_size]
+        return sample

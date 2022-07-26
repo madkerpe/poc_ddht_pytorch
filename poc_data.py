@@ -89,6 +89,10 @@ def generate_sample():
     return data, length, event, meta
 
 def generate_test_sample(repays=True):
+    """
+    only returns samples that are censored
+    (since we have the ground truth event, we can use this to test)
+    """
     sample = generate_sample()
     if repays:
         while not sample[3]['censored']:

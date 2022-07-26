@@ -48,14 +48,17 @@ class DeepHit(torch.nn.Module):
 
     def forward(self, input_batch, time_to_event_batch):
         DEVICE = self.device
-        
+
         first_hitting_time_batch = torch.zeros((input_batch.size(0), self.causess.output_size), device=DEVICE)
         last_measurement_batch = torch.zeros((input_batch.size(0), self.encoder.input_size), device=DEVICE)
 
         for idx, data in enumerate(zip(input_batch, time_to_event_batch)):
             sample, tte = data
             tte = int(tte.item())
-            last_measurement_batch[idx] = sample[tte - 1]
+            last_measurement_batch[idx] = sample[0]
+            # if we're working with the POC data, we need to add "= sample[tte - 1]" to the end of the line above
+            # the reason is that when POC'in deephit, i was too lazy to write another dataset, so I just took the 
+            # dynamic POC dataset and took the last measurement here
 
         context_vector_batch = self.encoder(last_measurement_batch)
         first_hitting_time_batch = self.causess(context_vector_batch, last_measurement_batch)

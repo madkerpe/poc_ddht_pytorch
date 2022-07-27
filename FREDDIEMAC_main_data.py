@@ -5,15 +5,11 @@ min_age = 12
 max_age = 180
 epsilon = 1e-6
 
-class FREDDIEMAC_basline_dataset(torch.utils.data.Dataset):
+class FREDDIEMAC_main_dataset(torch.utils.data.Dataset):
     """
-    this dataset uses the generate_sample() function
-    it padds the samples with zeros at the end and 
-    puts them into a pytorch dataset class
-
     test_set: does nothing at the moment
     """
-    def __init__(self, dataframe, allowed_covariates, TIME_TO_EVENT_covariate, LABEL_covariate, frac_cases=0.5, random_state=42, test_set=False, augment=False, data_augment_factor=3):
+    def __init__(self, dataframe, allowed_covariates, TIME_TO_EVENT_covariate, TOTAL_OBSERVED_LENGTH_covariate, LABEL_covariate, frac_cases=0.5, random_state=42, test_set=False, augment=False, data_augment_factor=3):
         torch.utils.data.Dataset.__init__(self)
         self.frac_cases = frac_cases
         self.test_set = test_set
@@ -26,9 +22,10 @@ class FREDDIEMAC_basline_dataset(torch.utils.data.Dataset):
 
         self.allowed_covariates = allowed_covariates
         self.TIME_TO_EVENT_covariate = TIME_TO_EVENT_covariate
+        self.TOTAL_OBSERVED_LENGTH_covariate = TOTAL_OBSERVED_LENGTH_covariate
         self.LABEL_covariate = LABEL_covariate
 
-        self.loan_sequence_numbers = dataframe["LOAN_SEQUENCE_NUMBER"].sample(frac=frac_cases, random_state=random_state).compute()
+        self.loan_sequence_numbers = dataframe["LOAN_SEQUENCE_NUMBER"].unique().sample(frac=frac_cases, random_state=random_state).compute()
         self.num_cases = len(self.loan_sequence_numbers)
         self.num_covariates = len(self.dataframe[allowed_covariates].columns)
 
@@ -52,12 +49,31 @@ class FREDDIEMAC_basline_dataset(torch.utils.data.Dataset):
             idx = [idx]            
 
         lsn_series = self.loan_sequence_numbers.iloc[idx]
-        lsn_data = dd.merge(self.dataframe, lsn_series, on="LOAN_SEQUENCE_NUMBER", how="inner")
 
-        data = torch.tensor(lsn_data[self.allowed_covariates].compute().to_numpy()).unsqueeze(1)
-        data_length = torch.tensor(lsn_data[self.TIME_TO_EVENT_covariate].compute().to_numpy()).unsqueeze(1)
-        event = torch.tensor(lsn_data[self.LABEL_covariate].compute().to_numpy()).unsqueeze(1)
-        tte = torch.tensor(lsn_data[self.TIME_TO_EVENT_covariate].compute().to_numpy()).unsqueeze(1)
+        print("len(lsn_series) = ", len(lsn_series))
+
+        lsn_data = dd.merge(self.dataframe, lsn_series, on="LOAN_SEQUENCE_NUMBER", how="inner").compute()
+        batch_length = len(lsn_series)
+
+        print("batch_length = ", batch_length)
+
+        lsn_label = lsn_data.groupby("LOAN_SEQUENCE_NUMBER").first()
+        lsn_label = lsn_label[["LOAN_SEQUENCE_NUMBER", self.TIME_TO_EVENT_covariate, self.TOTAL_OBSERVED_LENGTH_covariate, self.LABEL_covariate]]
+
+        #TODO don't iterate over the sequence, for now I'm doing exactly that,
+        # what are you gonna do about it?
+        data = torch.zeros((batch_length, self.max_length, self.num_covariates))
+        for memory_index, value in enumerate(lsn_label.iterrows()):
+            loan_entry = value[1]
+            loan_length = loan_entry[self.TOTAL_OBSERVED_LENGTH_covariate]
+
+            loan_data = lsn_data[lsn_data["LOAN_SEQUENCE_NUMBER"] == loan_entry["LOAN_SEQUENCE_NUMBER"]][self.allowed_covariates].to_numpy()
+            loan_data = torch.tensor(loan_data)
+            data[memory_index, :loan_length, :] = loan_data
+
+        data_length = torch.tensor(lsn_label[self.TOTAL_OBSERVED_LENGTH_covariate].to_numpy()).unsqueeze(1)
+        event = torch.tensor(lsn_label[self.LABEL_covariate].to_numpy()).unsqueeze(1)
+        tte = torch.tensor(lsn_label[self.TIME_TO_EVENT_covariate].to_numpy()).unsqueeze(1)
 
         return (
             data,
@@ -66,7 +82,9 @@ class FREDDIEMAC_basline_dataset(torch.utils.data.Dataset):
             tte
         )
 
-class FREDDIEMAC_baseline_dataloader():
+
+
+class FREDDIEMAC_main_dataloader():
     def __init__(self, dataset, batch_size):
         self.iterator_count = 0
         self.max_length = len(dataset)

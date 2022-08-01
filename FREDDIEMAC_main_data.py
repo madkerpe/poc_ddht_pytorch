@@ -50,14 +50,12 @@ class FREDDIEMAC_main_dataset(torch.utils.data.Dataset):
 
         lsn_series = self.loan_sequence_numbers.iloc[idx]
 
-        print("len(lsn_series) = ", len(lsn_series))
-
         lsn_data = dd.merge(self.dataframe, lsn_series, on="LOAN_SEQUENCE_NUMBER", how="inner").compute()
         batch_length = len(lsn_series)
 
-        print("batch_length = ", batch_length)
+        lsn_data["LOAN_SEQUENCE_NUMBER_GROUP_INDEX"] = lsn_data["LOAN_SEQUENCE_NUMBER"].astype(str)
+        lsn_label = lsn_data.groupby("LOAN_SEQUENCE_NUMBER_GROUP_INDEX").first()
 
-        lsn_label = lsn_data.groupby("LOAN_SEQUENCE_NUMBER").first()
         lsn_label = lsn_label[["LOAN_SEQUENCE_NUMBER", self.TIME_TO_EVENT_covariate, self.TOTAL_OBSERVED_LENGTH_covariate, self.LABEL_covariate]]
 
         #TODO don't iterate over the sequence, for now I'm doing exactly that,
@@ -65,8 +63,8 @@ class FREDDIEMAC_main_dataset(torch.utils.data.Dataset):
         data = torch.zeros((batch_length, self.max_length, self.num_covariates))
         for memory_index, value in enumerate(lsn_label.iterrows()):
             loan_entry = value[1]
-            loan_length = loan_entry[self.TOTAL_OBSERVED_LENGTH_covariate]
-
+            loan_length = round(loan_entry[self.TOTAL_OBSERVED_LENGTH_covariate])
+            
             loan_data = lsn_data[lsn_data["LOAN_SEQUENCE_NUMBER"] == loan_entry["LOAN_SEQUENCE_NUMBER"]][self.allowed_covariates].to_numpy()
             loan_data = torch.tensor(loan_data)
             data[memory_index, :loan_length, :] = loan_data

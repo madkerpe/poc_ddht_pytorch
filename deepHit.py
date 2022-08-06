@@ -1,6 +1,7 @@
 import torch
-from torch.nn import Linear
+from torch.nn import Linear, Dropout
 from torch.nn.functional import relu, softmax
+from torch.nn.init import xavier_uniform_
 
 num_covariates = 3  # This is not customisable
 
@@ -8,14 +9,17 @@ class Encoder(torch.nn.Module):
     def __init__(self, input_size, hidden_size_encoder, context_size):
         super(Encoder, self).__init__()
         self.input_size = input_size
-        self.fc_layer_1 = Linear(input_size, hidden_size_encoder//2)
-        self.fc_layer_2 = Linear(hidden_size_encoder//2, hidden_size_encoder)
-        self.fc_layer_3 = Linear(hidden_size_encoder, context_size)
+        self.fc_layer_1 = Linear(input_size, hidden_size_encoder)
+        self.fc_dropout_1 = Dropout(0.6)
+        self.fc_layer_2 = Linear(hidden_size_encoder, context_size)
+
+        xavier_uniform_(self.fc_layer_1.weight)
+        xavier_uniform_(self.fc_layer_2.weight)
 
     def forward(self, input):
         output = relu(self.fc_layer_1(input))
+        output = self.fc_dropout_1(output)
         output = relu(self.fc_layer_2(output))
-        output = self.fc_layer_3(output)
 
         return output
 
@@ -24,17 +28,28 @@ class CauseSpecificSubnetwork(torch.nn.Module):
         super(CauseSpecificSubnetwork, self).__init__()
         self.input_size = context_size + input_size
         self.output_size = max_length*num_causes
-        self.layer1 = Linear(self.input_size, 2*hidden_cause_size)
-        self.layer2 = Linear(2*hidden_cause_size, hidden_cause_size)
-        self.layer3 = Linear(hidden_cause_size, hidden_cause_size//2)
-        self.layer4 = Linear(hidden_cause_size//2, self.output_size)
+
+        self.fc_layer_1 = Linear(self.input_size, hidden_cause_size)
+        self.dropout_layer_1 = Dropout(0.6)
+        self.fc_layer_2 = Linear(hidden_cause_size, hidden_cause_size)
+        self.dropout_layer_2 = Dropout(0.6)
+        self.fc_layer_3 = Linear(hidden_cause_size, hidden_cause_size)
+        self.dropout_layer_3 = Dropout(0.6)
+        self.fc_layer_4 = Linear(hidden_cause_size, self.output_size)
+
+        xavier_uniform_(self.fc_layer_1.weight)
+        xavier_uniform_(self.fc_layer_2.weight)
+        xavier_uniform_(self.fc_layer_3.weight)
+        xavier_uniform_(self.fc_layer_4.weight)
 
     def forward(self, context_vector, last_measurement):
-
-        output = relu(self.layer1(torch.cat((context_vector, last_measurement), dim=1)))
-        output = relu(self.layer2(output))
-        output = relu(self.layer3(output))
-        output = softmax(self.layer4(output), dim=1)
+        output = relu(self.fc_layer_1(torch.cat((context_vector, last_measurement), dim=1)))
+        output = self.dropout_layer_1(output)
+        output = relu(self.fc_layer_2(output))
+        output = self.dropout_layer_2(output)
+        output = relu(self.fc_layer_3(output))
+        output = self.dropout_layer_3(output)
+        output = softmax(self.fc_layer_4(output), dim=1)
 
         return output
 

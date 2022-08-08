@@ -94,6 +94,7 @@ class DynamicDeepHit(torch.nn.Module):
 
             sample, data_length = data
             #(l,d)
+
             data_length = int(data_length.item())
             observed_length = sample.size(0)
             #=l-1

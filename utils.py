@@ -3,8 +3,6 @@ import torch
 from losses import CIF_K
 from baseline_losses import CIF_K as CIF_K_baseline
 
-#CIF_K(first_hitting_time, event_k, data_length, MAX_LENGTH):
-
 def plot_fht(first_hitting_time, MAX_LENGTH):
     fig, (ax0, ax1, ax2) = plt.subplots(3)
     ax0.bar([i for i in range(MAX_LENGTH)], first_hitting_time[:MAX_LENGTH].cpu().detach().numpy())

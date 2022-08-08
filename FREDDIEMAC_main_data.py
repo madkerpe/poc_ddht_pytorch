@@ -93,8 +93,8 @@ class FREDDIEMAC_main_dataset(torch.utils.data.Dataset):
             data[memory_index, :loan_length, :] = loan_data[:loan_length, :]
 
         event = torch.tensor(lsn_labels[self.LABEL_covariate].to_numpy()).unsqueeze(1)
-        data_length = torch.tensor(lsn_labels[self.TOTAL_OBSERVED_LENGTH_covariate].to_numpy()).unsqueeze(1)
-        tte = torch.tensor(lsn_labels[self.TIME_TO_EVENT_covariate].to_numpy()).unsqueeze(1)
+        data_length = torch.tensor(lsn_labels[self.TOTAL_OBSERVED_LENGTH_covariate].to_numpy()).type(torch.int64).unsqueeze(1)
+        tte = torch.tensor(lsn_labels[self.TIME_TO_EVENT_covariate].to_numpy()).type(torch.int64).unsqueeze(1)
 
         return (
             data,

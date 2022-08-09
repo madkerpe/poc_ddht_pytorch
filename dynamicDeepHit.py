@@ -1,72 +1,93 @@
 import torch
-from torch.nn import Linear, GRU
+from torch.nn import Linear, GRU, Dropout
 from torch.nn.functional import relu, softmax
 from torch.nn.init import xavier_uniform_
 
 class EncoderRNN(torch.nn.Module):
-    def __init__(self, input_size, hidden_size, fc_size):
+    def __init__(self, covariate_input_size, rnn_state_size, encoder_fc_size, covariate_output_size):
         super(EncoderRNN, self).__init__()
-        self.hidden_size = hidden_size
-        self.input_size = input_size
-        self.gru = GRU(input_size, hidden_size, batch_first=True)
-        self.fc_layer_1 = Linear(hidden_size, fc_size)
-        self.fc_layer_2 = Linear(fc_size, fc_size//2)
-        self.fc_layer_3 = Linear(fc_size//2, input_size)
+        self.rnn_state_size = rnn_state_size
+        self.input_size = covariate_input_size
+        self.gru = GRU(covariate_input_size, rnn_state_size, batch_first=True)
+        self.fc_layer_1 = Linear(rnn_state_size, encoder_fc_size)
+        self.fc_dropout_1 = Dropout(0.6)
+        self.fc_layer_2 = Linear(encoder_fc_size, covariate_output_size)
+
+        xavier_uniform_(self.fc_layer_1.weight)
+        xavier_uniform_(self.fc_layer_2.weight)
 
     def forward(self, input, hidden):
         output, hidden = self.gru(input, hidden)
         output = relu(self.fc_layer_1(output))
-        output = relu(self.fc_layer_2(output))
-        output = self.fc_layer_3(output)
+        output = self.fc_dropout_1(output)
+        output = self.fc_layer_2(output)
 
         return output, hidden
 
     def initHidden(self, device):
-        return torch.rand(1, 1, self.hidden_size, device=device)
+        return torch.rand(1, 1, self.rnn_state_size, device=device)
 
 class AttnNetwork(torch.nn.Module):
-    def __init__(self, encoder_hidden_size, attention_hidden_size, output_size):
+    def __init__(self, rnn_state_size, attention_fc_size, covariate_input_size):
         super(AttnNetwork, self).__init__()
-        self.layer_1 = Linear(encoder_hidden_size + output_size, attention_hidden_size)
-        self.layer_2 = Linear(attention_hidden_size, 1)
+        self.input_size_for_attention = rnn_state_size + covariate_input_size
 
-    def forward(self, last_measurement, encoder_hidden_vector):
+        self.fc_layer_1 = Linear(self.input_size_for_attention, attention_fc_size)
+        self.fc_layer_2 = Linear(attention_fc_size, 1)
+
+        xavier_uniform_(self.fc_layer_1.weight)
+        xavier_uniform_(self.fc_layer_2.weight)
+
+    def forward(self, last_measurement, rnn_hidden_state_vector):
         #TODO Here in the decoder, we abuse the batch system, this should be reworked
-        input_for_attention = torch.cat((last_measurement.repeat(encoder_hidden_vector.size(0),1), encoder_hidden_vector), 1)
-        importance = relu(self.layer_1(input_for_attention))
-        importance = self.layer_2(importance)
+        input_for_attention = torch.cat((last_measurement.repeat(rnn_hidden_state_vector.size(0),1), rnn_hidden_state_vector), 1)
+        
+        importance = relu(self.fc_layer_1(input_for_attention))
+        importance = self.fc_layer_2(importance)
         attn_weights = softmax(importance, dim=0)
 
         return attn_weights
 
 class AttnDecoderRNN(torch.nn.Module):
-    def __init__(self, encoder_hidden_size, attention_hidden_size, output_size):
+    def __init__(self, rnn_state_size, covariate_input_size, attention_fc_size):
         super(AttnDecoderRNN, self).__init__()
-        self.hidden_size = encoder_hidden_size
-        self.output_size = output_size
-        self.attn = AttnNetwork(encoder_hidden_size, attention_hidden_size, output_size)
+        self.rnn_state_size = rnn_state_size
+        self.covariate_input_size = covariate_input_size
+        self.attn = AttnNetwork(rnn_state_size, attention_fc_size, covariate_input_size)
 
-    def forward(self, last_measurement, encoder_hidden_vector):
-        attn_weights = self.attn(last_measurement, encoder_hidden_vector)
-        context_vector = torch.mm(torch.transpose(attn_weights, 0, 1), encoder_hidden_vector)
+    def forward(self, last_measurement, rnn_state_vector):
+        attn_weights = self.attn(last_measurement, rnn_state_vector)
+        context_vector = torch.mm(torch.transpose(attn_weights, 0, 1), rnn_state_vector)
 
         return context_vector, attn_weights
 
 class CauseSpecificSubnetwork(torch.nn.Module):
-    def __init__(self, hidden_size, input_size, max_length, num_causes):
+    def __init__(self, context_size, covariate_input_size, cause_fc_size, max_length, num_causes):
         super(CauseSpecificSubnetwork, self).__init__()
-        self.input_size = hidden_size + input_size
-        self.output_size = max_length*num_causes
-        self.layer1 = Linear(self.input_size, 2*hidden_size)
-        self.layer2 = Linear(2*hidden_size, hidden_size)
-        self.layer3 = Linear(hidden_size, hidden_size//2)
-        self.layer4 = Linear(hidden_size//2, self.output_size)
+        self.cause_input_size = context_size + covariate_input_size
+        self.cause_output_size = max_length*num_causes
+
+        self.fc_layer_1 = Linear(self.cause_input_size, cause_fc_size)
+        self.dropout_layer_1 = Dropout(0.6)
+        self.fc_layer_2 = Linear(cause_fc_size, cause_fc_size)
+        self.dropout_layer_2 = Dropout(0.6)
+        self.fc_layer_3 = Linear(cause_fc_size, cause_fc_size)
+        self.dropout_layer_3 = Dropout(0.6)
+        self.fc_layer_4 = Linear(cause_fc_size, self.cause_output_size)
+
+        xavier_uniform_(self.fc_layer_1.weight)
+        xavier_uniform_(self.fc_layer_2.weight)
+        xavier_uniform_(self.fc_layer_3.weight)
+        xavier_uniform_(self.fc_layer_4.weight)
 
     def forward(self, context_vector, last_measurement):
-        output = relu(self.layer1(torch.cat((context_vector, last_measurement.unsqueeze(0)), dim=1)))
-        output = relu(self.layer2(output))
-        output = relu(self.layer3(output))
-        output = softmax(self.layer4(output), dim=1)
+        output = relu(self.fc_layer_1(torch.cat((context_vector, last_measurement.unsqueeze(0)), dim=1)))
+        output = self.dropout_layer_1(output)
+        output = relu(self.fc_layer_2(output))
+        output = self.dropout_layer_2(output)
+        output = relu(self.fc_layer_3(output))
+        output = self.dropout_layer_3(output)
+        output = softmax(self.fc_layer_4(output), dim=1)
 
         return output
 
@@ -85,7 +106,7 @@ class DynamicDeepHit(torch.nn.Module):
 
         output_batch = torch.zeros((input_batch.size(0), input_batch.size(1) - 1, input_batch.size(2)), device=DEVICE)
         #(b,l-1,d)
-        first_hitting_time_batch = torch.zeros((input_batch.size(0), self.causess.output_size), device=DEVICE)
+        first_hitting_time_batch = torch.zeros((input_batch.size(0), self.causess.cause_output_size), device=DEVICE)
         #(b,l*k)
         attn_weights_batch = torch.zeros((input_batch.size(0), self.max_length - 1), device=DEVICE)
 
@@ -98,7 +119,7 @@ class DynamicDeepHit(torch.nn.Module):
             observed_length = sample.size(0)
             #=l-1
 
-            encoder_hidden_vector = torch.zeros(observed_length - 1, self.encoder.hidden_size, device=DEVICE)
+            encoder_hidden_vector = torch.zeros(observed_length - 1, self.encoder.rnn_state_size, device=DEVICE)
             #(l-1,h)
             encoder_output_vector = torch.zeros(observed_length - 1, self.encoder.input_size, device=DEVICE)
             #(l-1,d)

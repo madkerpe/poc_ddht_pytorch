@@ -4,12 +4,12 @@ from torch.nn.functional import relu, softmax
 from torch.nn.init import xavier_uniform_
 
 class Encoder(torch.nn.Module):
-    def __init__(self, input_size, hidden_size_encoder, context_size):
+    def __init__(self, input_size, encoder_fc_size, context_size):
         super(Encoder, self).__init__()
         self.input_size = input_size
-        self.fc_layer_1 = Linear(input_size, hidden_size_encoder)
+        self.fc_layer_1 = Linear(input_size, encoder_fc_size)
         self.fc_dropout_1 = Dropout(0.6)
-        self.fc_layer_2 = Linear(hidden_size_encoder, context_size)
+        self.fc_layer_2 = Linear(encoder_fc_size, context_size)
 
         xavier_uniform_(self.fc_layer_1.weight)
         xavier_uniform_(self.fc_layer_2.weight)
@@ -22,18 +22,19 @@ class Encoder(torch.nn.Module):
         return output
 
 class CauseSpecificSubnetwork(torch.nn.Module):
-    def __init__(self, context_size, hidden_cause_size, input_size, max_length, num_causes):
+    #TODO volgorde input aanpassen
+    def __init__(self, context_size, hidden_cause_fc_size, input_size, max_length, num_causes):
         super(CauseSpecificSubnetwork, self).__init__()
         self.input_size = context_size + input_size
         self.output_size = max_length*num_causes
 
-        self.fc_layer_1 = Linear(self.input_size, hidden_cause_size)
+        self.fc_layer_1 = Linear(self.input_size, hidden_cause_fc_size)
         self.dropout_layer_1 = Dropout(0.6)
-        self.fc_layer_2 = Linear(hidden_cause_size, hidden_cause_size)
+        self.fc_layer_2 = Linear(hidden_cause_fc_size, hidden_cause_fc_size)
         self.dropout_layer_2 = Dropout(0.6)
-        self.fc_layer_3 = Linear(hidden_cause_size, hidden_cause_size)
+        self.fc_layer_3 = Linear(hidden_cause_fc_size, hidden_cause_fc_size)
         self.dropout_layer_3 = Dropout(0.6)
-        self.fc_layer_4 = Linear(hidden_cause_size, self.output_size)
+        self.fc_layer_4 = Linear(hidden_cause_fc_size, self.output_size)
 
         xavier_uniform_(self.fc_layer_1.weight)
         xavier_uniform_(self.fc_layer_2.weight)

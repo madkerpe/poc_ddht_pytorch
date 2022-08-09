@@ -1,8 +1,7 @@
 import torch
 from torch.nn import Linear, GRU
 from torch.nn.functional import relu, softmax
-
-num_covariates = 3  # This is not customisable
+from torch.nn.init import xavier_uniform_
 
 class EncoderRNN(torch.nn.Module):
     def __init__(self, input_size, hidden_size, fc_size):

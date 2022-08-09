@@ -3,8 +3,6 @@ from torch.nn import Linear, Dropout
 from torch.nn.functional import relu, softmax
 from torch.nn.init import xavier_uniform_
 
-num_covariates = 3  # This is not customisable
-
 class Encoder(torch.nn.Module):
     def __init__(self, input_size, hidden_size_encoder, context_size):
         super(Encoder, self).__init__()

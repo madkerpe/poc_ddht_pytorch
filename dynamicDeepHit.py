@@ -1,6 +1,6 @@
 import torch
 from torch.nn import Linear, GRU
-from torch.nn.functional import relu, softmax, tanh, sigmoid
+from torch.nn.functional import relu, softmax
 
 num_covariates = 3  # This is not customisable
 

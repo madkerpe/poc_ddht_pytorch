@@ -69,7 +69,7 @@ def plot_fht_and_cif_baseline(first_hitting_time, MAX_LENGTH):
     ax11.set_ylim([0,1]);
     ax12.set_ylim([0,1]);
     
-def plot_gamma(gamma):
+def plot_gamma(gamma, y_lim=None):
     fig, (ax0, ax1, ax2) = plt.subplots(1,3,figsize=(10,5))
 
     input_size = gamma.shape[1]
@@ -80,13 +80,14 @@ def plot_gamma(gamma):
     
     ax0.set_title("indicators prepay event")
     ax1.set_title("indicators default event")
-    ax2.set_title("indicators default event")
+    ax2.set_title("indicators full repay event")
+    
+    if y_lim is not None:
+        ax0.set_ylim(y_lim);
+        ax1.set_ylim(y_lim);
+        ax2.set_ylim(y_lim);
 
-    ax0.set_ylim([-1,1]);
-    ax1.set_ylim([-1,1]);
-    ax2.set_ylim([-1,1]);
-
-def plot_attention_weights_batch(attention_weights_batch, data_length_batch, normalised=True):
+def plot_attention_weights_batch(attention_weights_batch, data_length_batch, normalised=True, y_lim=None):
     fig, ax = plt.subplots(1,figsize=(10,5))
     
     attention_weights_batch = attention_weights_batch.cpu()
@@ -110,7 +111,9 @@ def plot_attention_weights_batch(attention_weights_batch, data_length_batch, nor
         print("WARNING: This function isn't normalised in length of samples")
 
     ax.bar([i for i in range(attention_weights_length)], attention_weights.cpu().detach().numpy())
-    ax.set_ylim([0,1]);
+
+    if y_lim is not None:
+        ax.set_ylim([0,y_lim]);
 
 def plot_attention_weights(attention_weights):
     fig, ax = plt.subplots(1,figsize=(10,5))

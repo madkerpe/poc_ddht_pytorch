@@ -122,3 +122,24 @@ def plot_attention_weights(attention_weights):
 
     ax.bar([i for i in range(attention_weights_length)], attention_weights.cpu().detach().numpy())
     ax.set_ylim([0,1]);
+
+def plot_dynamic_risk_prediction(probability_of_event_0, probability_of_event_1, probability_of_event_2, covariates_to_plot, covariate_series, DATA_LENGTH, PLOT_LENGTH, MAX_LENGTH):
+    fig, (ax1, ax2) = plt.subplots(2,figsize=(15,10))
+
+    ax1.plot([i for i in range(MAX_LENGTH)][:PLOT_LENGTH], probability_of_event_0[:PLOT_LENGTH], label='probability of prepay')
+    ax1.plot([i for i in range(MAX_LENGTH)][:PLOT_LENGTH], probability_of_event_1[:PLOT_LENGTH], label='probability of default')
+    ax1.plot([i for i in range(MAX_LENGTH)][:PLOT_LENGTH], probability_of_event_2[:PLOT_LENGTH], label='probability of full repay')
+
+    ax1.set_ylim([0,1]);
+    ax1.legend()
+
+    for i, covariate in enumerate(covariates_to_plot):
+
+        if PLOT_LENGTH > DATA_LENGTH:
+            covariate_entry = list(covariate_series[i]) + (MAX_LENGTH - DATA_LENGTH)*[None]
+
+        ax2.plot([i for i in range(MAX_LENGTH)][:PLOT_LENGTH], covariate_entry[:PLOT_LENGTH], label=covariate)
+    
+    ax2.legend(prop={'size': 7})
+
+

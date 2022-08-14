@@ -101,8 +101,6 @@ class DynamicDeepHit(torch.nn.Module):
         self.max_length = max_length
         self.device = device
 
-        print("THIS VERSION OF DYNAMICDEEPHIT DOES NOT USE THE LAST MEASUREMENT IN THE DECODING PROCESS")
-
     def forward(self, input_batch, data_length_batch):
         DEVICE = self.device
 

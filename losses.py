@@ -6,7 +6,7 @@ _EPSILON = 1e-6
 def CIF_K_tau(first_hitting_time, event_k, tte, data_length, MAX_LENGTH):
     #last measurement is on index "data_length - 1"
     #event_time is on index "data_length"
-    amount_of_events = first_hitting_time.size(0)//MAX_LENGTH
+    amount_of_events = first_hitting_time.shape[0]//MAX_LENGTH
     numerator = torch.sum(first_hitting_time.view(amount_of_events, MAX_LENGTH)[event_k][data_length - 1:tte])
     denomenator = 1 - torch.sum(first_hitting_time.view(amount_of_events, MAX_LENGTH)[:,:data_length - 1])
     #print("numerator=", numerator)
@@ -23,21 +23,34 @@ def CIF_K(first_hitting_time, event_k, data_length, MAX_LENGTH):
     return cif_k
 
 def CIF(first_hitting_time, data_length, MAX_LENGTH):
-    amount_of_events = first_hitting_time.size(0)//MAX_LENGTH
+    amount_of_events = first_hitting_time.shape[0]//MAX_LENGTH
     cif = torch.zeros(amount_of_events, MAX_LENGTH)
     
     for event in range(amount_of_events):
         cif[event] = CIF_K(first_hitting_time, event, data_length, MAX_LENGTH)
-        #print("CIF_K=", CIF_K(first_hitting_time, event, data_length, MAX_LENGTH))
 
     return cif
+
+def CIF_batch(first_hitting_time_batch, data_length_batch, MAX_LENGTH, device='cpu'):
+    batch_size = first_hitting_time_batch.shape[0]
+    amount_of_events = first_hitting_time_batch.shape[1]//MAX_LENGTH
+    cif_batch = torch.zeros(batch_size, amount_of_events, MAX_LENGTH).to(device)
+
+    for idx in range(batch_size):
+        fht = first_hitting_time_batch[idx]
+        data_length = data_length_batch[idx]
+    
+        cif_batch[idx] = CIF(fht, data_length, MAX_LENGTH)
+
+    return cif_batch
+
 
 def eta(a,b, sigma):
     return torch.exp((-1)*(a-b)/sigma)
 
 def loss_1_batch(first_hitting_time_batch, event_batch, batch_tte, batch_data_length, MAX_LENGTH, device='cpu'):
     sum = torch.zeros(1).to(device)
-    amount_of_events = first_hitting_time_batch.size(1)//MAX_LENGTH
+    amount_of_events = first_hitting_time_batch.shape[1]//MAX_LENGTH
     
     for idx, first_hitting_time in enumerate(first_hitting_time_batch):
         event = int(event_batch[idx].item())
@@ -74,9 +87,9 @@ def loss_2_batch(first_hitting_time_batch, event_batch, batch_tte, batch_data_le
     define pair (i,j) an acceptable pair for event k, if subject i experiences event k at time s^i, 
     while subject j did not experience any event at time s^i
 
-    TODO: test grondig
+    TODO: test thoroughly
     """
-    batch_size = event_batch.size(0)
+    batch_size = event_batch.shape[0]
     total_ranking_loss = torch.zeros(1).to(device)
 
     if batch_size <= 1:
@@ -98,7 +111,7 @@ def loss_2_batch(first_hitting_time_batch, event_batch, batch_tte, batch_data_le
         for cif_with_correct_event, tte_with_correct_event in zip(all_cif_with_correct_event, all_tte_with_correct_event):
             
             for cif, tte in zip(cif_batch, batch_tte):
-                if tte_with_correct_event < tte:
+                if tte_with_correct_event < tte: # this also rules out i == j
                     total_ranking_loss += eta(cif_with_correct_event[tte_with_correct_event.long() - 1] , cif[tte_with_correct_event.long() - 1], sigma)
             
 
